@@ -8,29 +8,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 
 import { WolfTheme } from '@/constants/colors'
 import { useOfficialPrograms } from '@/hooks/use-programs'
-import { useAssignProgram } from '@/hooks/use-programs'
-import { AlertModal } from '@/components/ui/AlertModal'
 import type { WorkoutProgramRow } from '@/types/database'
-
-const DIFFICULTY_LABEL: Record<string, string> = {
-  beginner: 'Principiante',
-  intermediate: 'Intermedio',
-  advanced: 'Avanzado',
-}
 
 function ProgramCard({
   program,
-  onAssign,
-  isAssigning,
+  onViewDetails,
 }: {
   program: WorkoutProgramRow
-  onAssign: (id: string) => void
-  isAssigning: boolean
+  onViewDetails: (id: string) => void
 }) {
   return (
     <View testID="explore-program-card" style={styles.card}>
@@ -43,16 +34,12 @@ function ProgramCard({
         </Text>
       )}
       <TouchableOpacity
-        testID="explore-program-card-assign-button"
-        style={[styles.assignButton, isAssigning && styles.buttonDisabled]}
-        onPress={() => onAssign(program.id)}
-        disabled={isAssigning}
+        testID="explore-program-card-details-button"
+        style={styles.assignButton}
+        onPress={() => onViewDetails(program.id)}
       >
-        {isAssigning ? (
-          <ActivityIndicator size="small" color={WolfTheme.colors.background} />
-        ) : (
-          <Text style={styles.assignButtonText}>Usar programa</Text>
-        )}
+        <Text style={styles.assignButtonText}>Ver detalle</Text>
+        <Ionicons name="chevron-forward" size={18} color="#fff" />
       </TouchableOpacity>
     </View>
   )
@@ -60,49 +47,19 @@ function ProgramCard({
 
 export default function ExploreScreen() {
   const [query, setQuery] = useState('')
-  const [alertModal, setAlertModal] = useState<{ visible: boolean; type: 'success' | 'error'; title: string; message: string }>({
-    visible: false,
-    type: 'info' as 'success' | 'error',
-    title: '',
-    message: '',
-  })
   const { data: programs, isLoading } = useOfficialPrograms()
-  const { mutateAsync: assignProgram, isPending: isAssigning, variables: assigningId } = useAssignProgram()
 
   const filtered = (programs ?? []).filter((p) =>
     p.name.toLowerCase().includes(query.toLowerCase())
   )
 
-  const handleAssign = async (programId: string) => {
-    try {
-      await assignProgram(programId)
-      setAlertModal({
-        visible: true,
-        type: 'success',
-        title: '¡Listo!',
-        message: 'Programa asignado correctamente. Podés verlo en tu pantalla de entrenamiento.',
-      })
-    } catch {
-      setAlertModal({
-        visible: true,
-        type: 'error',
-        title: 'Error',
-        message: 'No se pudo asignar el programa. Intentá nuevamente.',
-      })
-    }
+  const handleViewDetails = (programId: string) => {
+    router.push(`/(tabs)/explore/${programId}`)
   }
 
   return (
-    <>
-      <AlertModal
-        visible={alertModal.visible}
-        type={alertModal.type}
-        title={alertModal.title}
-        message={alertModal.message}
-        onDismiss={() => setAlertModal({ ...alertModal, visible: false })}
-      />
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
         <Text style={styles.title}>Explorar</Text>
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={18} color={WolfTheme.colors.textSecondary} />
@@ -142,14 +99,12 @@ export default function ExploreScreen() {
           renderItem={({ item }) => (
             <ProgramCard
               program={item}
-              onAssign={handleAssign}
-              isAssigning={isAssigning && assigningId === item.id}
+              onViewDetails={handleViewDetails}
             />
           )}
         />
       )}
-      </SafeAreaView>
-    </>
+    </SafeAreaView>
   )
 }
 
@@ -218,9 +173,8 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+    flexDirection: 'row',
+    gap: 8,
   },
   assignButtonText: {
     fontSize: 14,
