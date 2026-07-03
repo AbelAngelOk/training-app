@@ -1,7 +1,6 @@
 ﻿import { useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { WolfTheme } from '@/constants/colors'
 import { useOfficialPrograms } from '@/hooks/use-programs'
 import { useAssignProgram } from '@/hooks/use-programs'
+import { AlertModal } from '@/components/ui/AlertModal'
 import type { WorkoutProgramRow } from '@/types/database'
 
 const DIFFICULTY_LABEL: Record<string, string> = {
@@ -60,6 +60,12 @@ function ProgramCard({
 
 export default function ExploreScreen() {
   const [query, setQuery] = useState('')
+  const [alertModal, setAlertModal] = useState<{ visible: boolean; type: 'success' | 'error'; title: string; message: string }>({
+    visible: false,
+    type: 'info' as 'success' | 'error',
+    title: '',
+    message: '',
+  })
   const { data: programs, isLoading } = useOfficialPrograms()
   const { mutateAsync: assignProgram, isPending: isAssigning, variables: assigningId } = useAssignProgram()
 
@@ -70,15 +76,33 @@ export default function ExploreScreen() {
   const handleAssign = async (programId: string) => {
     try {
       await assignProgram(programId)
-      Alert.alert('¡Listo!', 'Programa asignado correctamente. Podés verlo en tu pantalla de entrenamiento.')
+      setAlertModal({
+        visible: true,
+        type: 'success',
+        title: '¡Listo!',
+        message: 'Programa asignado correctamente. Podés verlo en tu pantalla de entrenamiento.',
+      })
     } catch {
-      Alert.alert('Error', 'No se pudo asignar el programa. Intentá nuevamente.')
+      setAlertModal({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo asignar el programa. Intentá nuevamente.',
+      })
     }
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
+    <>
+      <AlertModal
+        visible={alertModal.visible}
+        type={alertModal.type}
+        title={alertModal.title}
+        message={alertModal.message}
+        onDismiss={() => setAlertModal({ ...alertModal, visible: false })}
+      />
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
         <Text style={styles.title}>Explorar</Text>
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={18} color={WolfTheme.colors.textSecondary} />
@@ -124,7 +148,8 @@ export default function ExploreScreen() {
           )}
         />
       )}
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   )
 }
 
