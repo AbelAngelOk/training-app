@@ -167,7 +167,7 @@ export default function TrainingListScreen() {
     )
   }
 
-  // No active program - show programs list
+  // No active program - show empty state with options
   if (isLoadingPrograms) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -181,68 +181,41 @@ export default function TrainingListScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={styles.scrollEmpty}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Mis programas</Text>
-            <Text style={styles.subtitle}>Selecciona uno para comenzar</Text>
+        {/* Empty state */}
+        <View style={styles.emptyStateContainer}>
+          <View style={styles.emptyStateIcon}>
+            <Ionicons name="barbell-outline" size={64} color={WolfTheme.colors.primary} />
           </View>
+
+          <Text style={styles.emptyStateTitle}>Sin programa activo</Text>
+
+          <Text style={styles.emptyStateDescription}>
+            Para comenzar a entrenar, debes seleccionar o crear un programa de entrenamiento personalizado.
+          </Text>
+
+          {/* Primary action - Explore programs */}
           <TouchableOpacity
-            style={styles.newBtn}
-            onPress={() => router.push('/(tabs)/training/create-program')}
-            activeOpacity={0.8}
+            style={styles.primaryButton}
+            onPress={() => router.push('/(tabs)/explore')}
+            activeOpacity={0.85}
           >
-            <Ionicons name="add" size={20} color="#fff" />
-            <Text style={styles.newBtnText}>Nuevo</Text>
+            <Ionicons name="compass-outline" size={20} color="#fff" />
+            <Text style={styles.primaryButtonText}>Explorar programas</Text>
           </TouchableOpacity>
-        </View>
 
-        {/* Search */}
-        <SearchInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Buscar programa..."
-        />
-
-        {/* Programs section */}
-        <View style={styles.section}>
-          <SectionTitle title="Programas" subtitle={`${filtered.length} disponibles`} />
-          <View style={styles.cards}>
-            {filtered.length === 0 ? (
-              <View style={styles.empty}>
-                <Ionicons name="search-outline" size={40} color={WolfTheme.colors.textSecondary} />
-                <Text style={styles.emptyText}>Sin resultados para &quot;{search}&quot;</Text>
-              </View>
-            ) : (
-              filtered.map((program) => (
-                <View key={program.id} style={styles.programCardWrapper}>
-                  <TouchableOpacity
-                    style={styles.programCard}
-                    onPress={() => router.push(`/(tabs)/training/${program.id}`)}
-                    activeOpacity={0.85}
-                  >
-                    <View style={styles.programCardContent}>
-                      <Text style={styles.programName}>{program.name}</Text>
-                      {program.description && (
-                        <Text style={styles.programDescription} numberOfLines={2}>
-                          {program.description}
-                        </Text>
-                      )}
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={WolfTheme.colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
-          </View>
+          {/* Secondary action - Create program */}
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => router.push('/(tabs)/training/create-program')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="add-outline" size={20} color={WolfTheme.colors.primary} />
+            <Text style={styles.secondaryButtonText}>Crear programa</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -259,6 +232,11 @@ const styles = StyleSheet.create({
     paddingBottom: WolfTheme.spacing.xxl,
     gap: WolfTheme.spacing.lg,
     paddingTop: WolfTheme.spacing.md,
+  },
+  scrollEmpty: {
+    flexGrow: 1,
+    paddingHorizontal: WolfTheme.spacing.lg,
+    paddingBottom: WolfTheme.spacing.xxl,
   },
   header: {
     flexDirection: 'row',
@@ -440,5 +418,70 @@ const styles = StyleSheet.create({
   programDescription: {
     fontSize: 13,
     color: WolfTheme.colors.textSecondary,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: WolfTheme.spacing.xxl,
+    gap: WolfTheme.spacing.lg,
+  },
+  emptyStateIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: WolfTheme.colors.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: WolfTheme.colors.textPrimary,
+    textAlign: 'center',
+  },
+  emptyStateDescription: {
+    fontSize: 15,
+    color: WolfTheme.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: '90%',
+  },
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: WolfTheme.spacing.sm,
+    backgroundColor: WolfTheme.colors.primary,
+    paddingHorizontal: WolfTheme.spacing.xl,
+    paddingVertical: WolfTheme.spacing.md,
+    borderRadius: WolfTheme.radius.button,
+    minHeight: 48,
+    width: '100%',
+    marginTop: WolfTheme.spacing.md,
+  },
+  primaryButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: WolfTheme.spacing.sm,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: WolfTheme.colors.primary,
+    paddingHorizontal: WolfTheme.spacing.xl,
+    paddingVertical: WolfTheme.spacing.md,
+    borderRadius: WolfTheme.radius.button,
+    minHeight: 48,
+    width: '100%',
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: WolfTheme.colors.primary,
   },
 })
