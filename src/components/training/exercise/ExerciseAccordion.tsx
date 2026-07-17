@@ -9,6 +9,7 @@ import {
   UIManager,
   View,
 } from 'react-native'
+import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 
 import { WolfTheme } from '@/constants/colors'
@@ -84,28 +85,39 @@ export function ExerciseAccordion({ exercise, index, onSetsChange }: ExerciseAcc
   return (
     <View style={[styles.container, allDone && styles.containerDone]}>
       {/* Header */}
-      <TouchableOpacity style={styles.header} onPress={toggle} activeOpacity={0.8}>
-        <View style={styles.indexPill}>
-          <Text style={styles.indexText}>{index + 1}</Text>
-        </View>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerContent} onPress={toggle} activeOpacity={0.8}>
+          <View style={styles.indexPill}>
+            <Text style={styles.indexText}>{index + 1}</Text>
+          </View>
 
-        <View style={styles.titleBlock}>
-          <Text style={styles.name}>{exercise.name}</Text>
-          <Text style={styles.muscle}>{exercise.muscleGroup}</Text>
-        </View>
+          <View style={styles.titleBlock}>
+            <Text style={styles.name}>{exercise.name}</Text>
+            <Text style={styles.muscle}>{exercise.muscleGroup}</Text>
+          </View>
 
-        <View style={styles.headerRight}>
-          {allDone && (
-            <Ionicons name="checkmark-circle" size={20} color={WolfTheme.colors.success} />
-          )}
-          {!allDone && completedCount > 0 && (
-            <Text style={styles.partialText}>{completedCount}/{exercise.sets.length}</Text>
-          )}
-          <Animated.View style={{ transform: [{ rotate: chevronRotation }] }}>
-            <Ionicons name="chevron-down" size={20} color={WolfTheme.colors.textSecondary} />
-          </Animated.View>
-        </View>
-      </TouchableOpacity>
+          <View style={styles.headerRight}>
+            {allDone && (
+              <Ionicons name="checkmark-circle" size={20} color={WolfTheme.colors.success} />
+            )}
+            {!allDone && completedCount > 0 && (
+              <Text style={styles.partialText}>{completedCount}/{exercise.sets.length}</Text>
+            )}
+            <Animated.View style={{ transform: [{ rotate: chevronRotation }] }}>
+              <Ionicons name="chevron-down" size={20} color={WolfTheme.colors.textSecondary} />
+            </Animated.View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Video button */}
+        <TouchableOpacity
+          style={styles.videoBtn}
+          onPress={() => router.push(`/(tabs)/training/exercise/${exercise.id}?name=${exercise.name}`)}
+          hitSlop={8}
+        >
+          <Ionicons name="play-circle-outline" size={20} color={WolfTheme.colors.primary} />
+        </TouchableOpacity>
+      </View>
 
       {/* Expanded content */}
       {open && (
@@ -188,6 +200,13 @@ const styles = StyleSheet.create({
     padding: WolfTheme.spacing.md,
     gap: WolfTheme.spacing.md,
     minHeight: 64,
+    justifyContent: 'space-between',
+  },
+  headerContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: WolfTheme.spacing.md,
   },
   indexPill: {
     width: 32,
@@ -296,5 +315,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: WolfTheme.colors.textPrimary,
+  },
+  videoBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: 'rgba(139,92,246,0.1)',
   },
 })

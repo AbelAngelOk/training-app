@@ -1,6 +1,6 @@
 export type UserRole = 'free_user' | 'premium_user' | 'coach' | 'admin'
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'grace_period'
-export type ProgramType = 'official' | 'personal'
+export type ProgramType = 'official' | 'personal' | 'challenge'
 export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
 export type SessionType = 'official' | 'personal'
 export type ExerciseDifficulty = 'beginner' | 'intermediate' | 'advanced'
@@ -11,10 +11,14 @@ export type RankingType = 'training_hours' | 'weight_lifted' | 'distance'
 export type StoreProvider = 'google_play' | 'apple_app_store'
 export type HealthProvider = 'health_connect' | 'apple_health' | 'garmin' | 'fitbit' | 'samsung_health'
 export type CoachClientStatus = 'active' | 'inactive'
+export type ContentStatus = 'draft' | 'published' | 'archived'
 
-export interface Database {
-  public: {
-    Tables: {
+/**
+ * Raw table definitions. supabase-js v2 requires every table to expose a
+ * `Relationships` array to conform to its GenericSchema; it is added
+ * mechanically via WithRelationships below so definitions stay readable.
+ */
+interface TableDefinitions {
       users: {
         Row: {
           id: string
@@ -115,7 +119,9 @@ export interface Database {
           type: ProgramType
           owner_id: string | null
           source_program_id: string | null
-          active: boolean
+          status: ContentStatus
+          duration_days: number | null
+          achievement_id: string | null
           created_at: string
           updated_at: string
         }
@@ -126,14 +132,18 @@ export interface Database {
           type: ProgramType
           owner_id?: string | null
           source_program_id?: string | null
-          active?: boolean
+          status?: ContentStatus
+          duration_days?: number | null
+          achievement_id?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           name?: string
           description?: string | null
-          active?: boolean
+          status?: ContentStatus
+          duration_days?: number | null
+          achievement_id?: string | null
           updated_at?: string
         }
       }
@@ -143,6 +153,9 @@ export interface Database {
           user_id: string
           workout_program_id: string
           assigned_at: string
+          is_active: boolean
+          deactivated_at: string | null
+          completed_at: string | null
           created_at: string
           updated_at: string
         }
@@ -151,12 +164,18 @@ export interface Database {
           user_id: string
           workout_program_id: string
           assigned_at?: string
+          is_active?: boolean
+          deactivated_at?: string | null
+          completed_at?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           workout_program_id?: string
           assigned_at?: string
+          is_active?: boolean
+          deactivated_at?: string | null
+          completed_at?: string | null
           updated_at?: string
         }
       }
@@ -164,7 +183,8 @@ export interface Database {
         Row: {
           id: string
           workout_program_id: string
-          weekday: Weekday
+          weekday: Weekday | null
+          day_number: number | null
           training_session_id: string
           created_at: string
           updated_at: string
@@ -172,13 +192,15 @@ export interface Database {
         Insert: {
           id?: string
           workout_program_id: string
-          weekday: Weekday
+          weekday?: Weekday | null
+          day_number?: number | null
           training_session_id: string
           created_at?: string
           updated_at?: string
         }
         Update: {
-          weekday?: Weekday
+          weekday?: Weekday | null
+          day_number?: number | null
           training_session_id?: string
           updated_at?: string
         }
@@ -192,6 +214,7 @@ export interface Database {
           owner_id: string | null
           source_session_id: string | null
           estimated_duration_minutes: number | null
+          targets_configured_at: string | null
           created_at: string
           updated_at: string
         }
@@ -203,6 +226,7 @@ export interface Database {
           owner_id?: string | null
           source_session_id?: string | null
           estimated_duration_minutes?: number | null
+          targets_configured_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -210,6 +234,7 @@ export interface Database {
           name?: string
           description?: string | null
           estimated_duration_minutes?: number | null
+          targets_configured_at?: string | null
           updated_at?: string
         }
       }
@@ -260,8 +285,16 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: never
-        Update: never
+        Insert: {
+          id?: string
+          name: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          updated_at?: string
+        }
       }
       equipment: {
         Row: {
@@ -270,8 +303,16 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: never
-        Update: never
+        Insert: {
+          id?: string
+          name: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          updated_at?: string
+        }
       }
       exercises: {
         Row: {
@@ -280,15 +321,43 @@ export interface Database {
           description: string | null
           instructions: string | null
           image_url: string | null
-          video_url: string | null
+          tips: string | null
+          external_id: string | null
           muscle_group_id: string
           equipment_id: string | null
           difficulty: ExerciseDifficulty
+          active: boolean
           created_at: string
           updated_at: string
         }
-        Insert: never
-        Update: never
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          instructions?: string | null
+          image_url?: string | null
+          tips?: string | null
+          external_id?: string | null
+          muscle_group_id: string
+          equipment_id?: string | null
+          difficulty?: ExerciseDifficulty
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          instructions?: string | null
+          image_url?: string | null
+          tips?: string | null
+          external_id?: string | null
+          muscle_group_id?: string
+          equipment_id?: string | null
+          difficulty?: ExerciseDifficulty
+          active?: boolean
+          updated_at?: string
+        }
       }
       workout_executions: {
         Row: {
@@ -456,8 +525,20 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: never
-        Update: never
+        Insert: {
+          id?: string
+          code: string
+          name: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          name?: string
+          description?: string | null
+          updated_at?: string
+        }
       }
       user_achievements: {
         Row: {
@@ -507,6 +588,32 @@ export interface Database {
         Insert: never
         Update: never
       }
+}
+
+type WithRelationships<T> = {
+  [K in keyof T]: T[K] & { Relationships: [] }
+}
+
+export interface Database {
+  public: {
+    Tables: WithRelationships<TableDefinitions>
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      duplicate_program_deep: {
+        Args: {
+          p_source_program_id: string
+          p_name?: string | null
+        }
+        Returns: string
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }

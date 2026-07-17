@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import {
-  ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,210 +11,224 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 
 import { WolfTheme } from '@/constants/colors'
-import { useOfficialPrograms, useActiveUserProgram } from '@/hooks/use-programs'
-import { SessionCard } from '@/components/training/cards/SessionCard'
-import { WeekCalendar } from '@/components/training/shared/WeekCalendar'
-import { SearchInput } from '@/components/training/shared/SearchInput'
-import { SectionTitle } from '@/components/training/shared/SectionTitle'
-import type { DayCode, Session } from '@/types/training'
+import { useActiveUserPrograms } from '@/hooks/use-programs'
+import { useActiveChallenges, useChallengeProgress } from '@/hooks/use-challenges'
+import { useActiveWorkout } from '@/hooks/use-workouts'
+import { useTrainingCommitments } from '@/hooks/use-training-calendar'
+import { ProgramCardSkeleton } from '@/components/training/skeletons/ProgramCardSkeleton'
+import { MonthCalendar } from '@/components/training/shared/MonthCalendar'
+import type { ActiveProgram } from '@/api/programs'
+import type { ActiveChallenge } from '@/api/challenges'
 
-const DAY_LABEL: Record<DayCode, string> = {
-  L: 'L',
-  M: 'M',
-  X: 'X',
-  J: 'J',
-  V: 'V',
-  S: 'S',
-  D: 'D',
+const CHALLENGE_COLOR = WolfTheme.colors.warning
+
+function ActiveProgramCard({ assignment }: { assignment: ActiveProgram }) {
+  const program = assignment.workout_programs
+  const daysPerWeek = program.program_days?.length ?? 0
+
+  return (
+    <TouchableOpacity
+      style={styles.programCard}
+      activeOpacity={0.85}
+      onPress={() => router.push(`/(tabs)/training/${program.id}`)}
+    >
+      <View style={styles.programIcon}>
+        <Ionicons name="barbell-outline" size={24} color={WolfTheme.colors.primary} />
+      </View>
+      <View style={styles.programCardContent}>
+        <Text style={styles.programName} numberOfLines={1}>
+          {program.name}
+        </Text>
+        {program.description ? (
+          <Text style={styles.programDescription} numberOfLines={2}>
+            {program.description}
+          </Text>
+        ) : null}
+        <View style={styles.programMetaRow}>
+          <View style={styles.programMetaBadge}>
+            <Ionicons name="calendar-outline" size={12} color={WolfTheme.colors.textSecondary} />
+            <Text style={styles.programMetaText}>{daysPerWeek} días/semana</Text>
+          </View>
+          <View style={[styles.programMetaBadge, styles.activeBadge]}>
+            <View style={styles.activeDot} />
+            <Text style={[styles.programMetaText, styles.activeText]}>Activo</Text>
+          </View>
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={WolfTheme.colors.textSecondary} />
+    </TouchableOpacity>
+  )
 }
 
-const weekdayToCode: Record<string, DayCode> = {
-  monday: 'L',
-  tuesday: 'M',
-  wednesday: 'X',
-  thursday: 'J',
-  friday: 'V',
-  saturday: 'S',
-  sunday: 'D',
+function ActiveChallengeCard({ assignment }: { assignment: ActiveChallenge }) {
+  const challenge = assignment.workout_programs
+  const sessionIds = challenge.program_days.map((d) => d.training_session_id)
+  const { data: completedSessionIds } = useChallengeProgress(sessionIds)
+  const completedDays = completedSessionIds?.length ?? 0
+
+  return (
+    <TouchableOpacity
+      style={styles.challengeCard}
+      activeOpacity={0.85}
+      onPress={() => router.push(`/(tabs)/training/challenge/${challenge.id}`)}
+    >
+      <View style={styles.challengeIcon}>
+        <Ionicons name="flame-outline" size={24} color={CHALLENGE_COLOR} />
+      </View>
+      <View style={styles.programCardContent}>
+        <Text style={styles.programName} numberOfLines={1}>
+          {challenge.name}
+        </Text>
+        <View style={styles.programMetaRow}>
+          <View style={[styles.programMetaBadge, styles.challengeBadge]}>
+            <Ionicons name="checkmark-done-outline" size={12} color={CHALLENGE_COLOR} />
+            <Text style={[styles.programMetaText, styles.challengeText]}>
+              {completedDays}/{challenge.duration_days} días
+            </Text>
+          </View>
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={WolfTheme.colors.textSecondary} />
+    </TouchableOpacity>
+  )
 }
 
 export default function TrainingListScreen() {
-  const [search, setSearch] = useState('')
+  const { data: activePrograms, isLoading } = useActiveUserPrograms()
+  const { data: activeChallenges } = useActiveChallenges()
+  const { data: activeWorkout } = useActiveWorkout()
+  const [calendarMonth, setCalendarMonth] = useState(new Date())
+  const { data: commitments } = useTrainingCommitments(calendarMonth)
 
-  const { data: activeUserProgram, isLoading: isLoadingActive } = useActiveUserProgram()
-  const { data: allPrograms, isLoading: isLoadingPrograms } = useOfficialPrograms()
-
-  const filtered = (allPrograms ?? []).filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  )
-
-  // Show loading while checking for active program
-  if (isLoadingActive) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={WolfTheme.colors.primary} />
-        </View>
-      </SafeAreaView>
-    )
-  }
-
-  // If there's an active program, show it as the main view
-  const activeProgram = activeUserProgram?.workout_programs
-  if (activeProgram) {
-    const programDays = activeUserProgram?.workout_programs?.program_days || []
-    const weeklyDays = programDays.map((pd: any) => weekdayToCode[pd.weekday] || 'L') as DayCode[]
-
-    const sessionMap: Partial<Record<DayCode, string>> = {}
-    programDays.forEach((pd: any) => {
-      const dayCode = weekdayToCode[pd.weekday]
-      if (pd.training_sessions) {
-        sessionMap[dayCode] = pd.training_sessions.name.slice(0, 2)
+  const resumeBanner = activeWorkout ? (
+    <TouchableOpacity
+      style={styles.resumeBanner}
+      activeOpacity={0.85}
+      onPress={() =>
+        router.push(`/(tabs)/training/session/${activeWorkout.training_session_id}`)
       }
-    })
+    >
+      <View style={styles.resumeIcon}>
+        <Ionicons name="play" size={18} color="#fff" />
+      </View>
+      <View style={styles.resumeMeta}>
+        <Text style={styles.resumeTitle}>Entrenamiento en curso</Text>
+        <Text style={styles.resumeSubtitle} numberOfLines={1}>
+          {activeWorkout.training_sessions.name} — tocá para continuar
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={WolfTheme.colors.textSecondary} />
+    </TouchableOpacity>
+  ) : null
 
-    const sessions: Session[] = programDays
-      .map((pd: any, idx: number) => ({
-        id: pd.training_sessions.id,
-        name: pd.training_sessions.name,
-        muscleGroup: activeProgram.description || '',
-        dayCode: weekdayToCode[pd.weekday] as DayCode,
-        icon: 'fitness-outline',
-        estimatedMinutes: pd.training_sessions.estimated_duration_minutes || 60,
-        exercises: [],
-        status: 'pending' as const,
-        scheduledDate: new Date(),
-      }))
-      .sort((a, b) => {
-        const dayOrder = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-        return dayOrder.indexOf(a.dayCode) - dayOrder.indexOf(b.dayCode)
-      })
-
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        {/* Custom header */}
-        <View style={styles.header}>
-          <View style={styles.headerMeta}>
-            <View style={[styles.colorDot, { backgroundColor: '#8B5CF6' }]} />
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {activeProgram.name}
-            </Text>
-          </View>
-          <TouchableOpacity style={styles.menuBtn} hitSlop={8}>
-            <Ionicons name="ellipsis-horizontal" size={22} color={WolfTheme.colors.textSecondary} />
-          </TouchableOpacity>
+        <View style={styles.skeletonsContainer}>
+          {Array(3)
+            .fill(0)
+            .map((_, i) => (
+              <ProgramCardSkeleton key={i} />
+            ))}
         </View>
-
-        {/* Stats strip */}
-        <View style={styles.statsStrip}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{sessions.length}</Text>
-            <Text style={styles.statLabel}>Sesiones</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{weeklyDays.length}</Text>
-            <Text style={styles.statLabel}>Días/semana</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>0/{sessions.length}</Text>
-            <Text style={styles.statLabel}>Esta semana</Text>
-          </View>
-        </View>
-
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Calendar section */}
-          <View style={styles.calendarSection}>
-            <Text style={styles.sectionTitle}>Calendario de entrenamientos</Text>
-            <WeekCalendar activeDays={weeklyDays} sessionMap={sessionMap} />
-            <View style={styles.calendarLegend}>
-              {sessions.map((s) => (
-                <View key={s.id} style={styles.legendRow}>
-                  <View style={[styles.legendDot, { backgroundColor: '#8B5CF6' }]} />
-                  <Text style={styles.legendDay}>{DAY_LABEL[s.dayCode]}</Text>
-                  <Text style={styles.legendName}>{s.name}</Text>
-                  <Text style={styles.legendMuscle}>— {s.muscleGroup}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Sessions section */}
-          <View style={styles.sessionsSection}>
-            <Text style={styles.sectionTitle}>Sesiones</Text>
-            <View style={styles.sessionsList}>
-              {sessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  onPress={() =>
-                    router.push(
-                      `/(tabs)/training/session/${session.id}?programId=${activeProgram.id}`
-                    )
-                  }
-                />
-              ))}
-            </View>
-          </View>
-        </ScrollView>
       </SafeAreaView>
     )
   }
 
-  // No active program - show empty state with options
-  if (isLoadingPrograms) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={WolfTheme.colors.primary} />
-        </View>
-      </SafeAreaView>
-    )
-  }
+  const hasPrograms = (activePrograms?.length ?? 0) > 0
+  const hasChallenges = (activeChallenges?.length ?? 0) > 0
+  const hasAnyCommitment = hasPrograms || hasChallenges
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerMeta}>
+          <Text style={styles.title}>Entrenamiento</Text>
+          <Text style={styles.subtitle}>
+            {hasPrograms
+              ? `${activePrograms!.length} programa${activePrograms!.length > 1 ? 's' : ''} activo${activePrograms!.length > 1 ? 's' : ''}`
+              : 'Sin programas activos'}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.manageBtn}
+          hitSlop={8}
+          onPress={() => router.push('/(tabs)/training/manage-programs')}
+        >
+          <Ionicons name="albums-outline" size={22} color={WolfTheme.colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.scrollEmpty}
+        contentContainerStyle={hasPrograms ? styles.scroll : styles.scrollEmpty}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Empty state */}
-        <View style={styles.emptyStateContainer}>
-          <View style={styles.emptyStateIcon}>
-            <Ionicons name="barbell-outline" size={64} color={WolfTheme.colors.primary} />
+        {resumeBanner}
+
+        {hasAnyCommitment && (
+          <MonthCalendar
+            month={calendarMonth}
+            onMonthChange={setCalendarMonth}
+            commitments={commitments ?? {}}
+          />
+        )}
+
+        {hasChallenges && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Retos activos</Text>
+            <View style={styles.cards}>
+              {activeChallenges!.map((assignment) => (
+                <ActiveChallengeCard key={assignment.id} assignment={assignment} />
+              ))}
+            </View>
           </View>
+        )}
 
-          <Text style={styles.emptyStateTitle}>Sin programa activo</Text>
+        {hasPrograms ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Programas</Text>
+            <View style={styles.cards}>
+              {activePrograms!.map((assignment) => (
+                <ActiveProgramCard key={assignment.id} assignment={assignment} />
+              ))}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.emptyStateContainer}>
+            <View style={styles.emptyStateIcon}>
+              <Ionicons name="barbell-outline" size={64} color={WolfTheme.colors.primary} />
+            </View>
 
-          <Text style={styles.emptyStateDescription}>
-            Para comenzar a entrenar, debes seleccionar o crear un programa de entrenamiento personalizado.
-          </Text>
+            <Text style={styles.emptyStateTitle}>Sin programa activo</Text>
 
-          {/* Primary action - Explore programs */}
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => router.push('/(tabs)/explore')}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="compass-outline" size={20} color="#fff" />
-            <Text style={styles.primaryButtonText}>Explorar programas</Text>
-          </TouchableOpacity>
+            <Text style={styles.emptyStateDescription}>
+              Para comenzar a entrenar, debes seleccionar o crear un programa de entrenamiento
+              personalizado. Si desactivaste un programa, podés reactivarlo desde &quot;Mis programas&quot;.
+            </Text>
 
-          {/* Secondary action - Create program */}
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => router.push('/(tabs)/training/create-program')}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="add-outline" size={20} color={WolfTheme.colors.primary} />
-            <Text style={styles.secondaryButtonText}>Crear programa</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Primary action - Explore programs */}
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => router.push('/(tabs)/explore')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="compass-outline" size={20} color="#fff" />
+              <Text style={styles.primaryButtonText}>Explorar programas</Text>
+            </TouchableOpacity>
+
+            {/* Secondary action - Manage programs */}
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => router.push('/(tabs)/training/manage-programs')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="albums-outline" size={20} color={WolfTheme.colors.primary} />
+              <Text style={styles.secondaryButtonText}>Mis programas</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   )
@@ -227,125 +239,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: WolfTheme.colors.background,
   },
-  scroll: {
-    paddingHorizontal: WolfTheme.spacing.lg,
-    paddingBottom: WolfTheme.spacing.xxl,
-    gap: WolfTheme.spacing.lg,
-    paddingTop: WolfTheme.spacing.md,
-  },
-  scrollEmpty: {
-    flexGrow: 1,
-    paddingHorizontal: WolfTheme.spacing.lg,
-    paddingBottom: WolfTheme.spacing.xxl,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: WolfTheme.spacing.md,
+    paddingHorizontal: WolfTheme.spacing.lg,
     paddingVertical: WolfTheme.spacing.md,
     gap: WolfTheme.spacing.md,
   },
   headerMeta: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: WolfTheme.spacing.sm,
-  },
-  colorDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: WolfTheme.colors.textPrimary,
-    flex: 1,
-  },
-  menuBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statsStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    backgroundColor: WolfTheme.colors.surface,
-    marginHorizontal: WolfTheme.spacing.lg,
-    marginBottom: WolfTheme.spacing.md,
-    borderRadius: WolfTheme.radius.card,
-    borderWidth: 1,
-    borderColor: WolfTheme.colors.border,
-    paddingVertical: WolfTheme.spacing.md,
-  },
-  statItem: {
-    alignItems: 'center',
     gap: 2,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: WolfTheme.colors.textPrimary,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: WolfTheme.colors.textSecondary,
-  },
-  statDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: WolfTheme.colors.border,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: WolfTheme.colors.textPrimary,
-  },
-  calendarSection: {
-    gap: WolfTheme.spacing.md,
-  },
-  calendarLegend: {
-    gap: WolfTheme.spacing.sm,
-    backgroundColor: WolfTheme.colors.surface,
-    borderRadius: WolfTheme.radius.card,
-    borderWidth: 1,
-    borderColor: WolfTheme.colors.border,
-    padding: WolfTheme.spacing.md,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendDay: {
-    width: 20,
-    fontSize: 14,
-    fontWeight: '700',
-    color: WolfTheme.colors.textPrimary,
-  },
-  legendName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: WolfTheme.colors.textPrimary,
-  },
-  legendMuscle: {
-    fontSize: 13,
-    color: WolfTheme.colors.textSecondary,
-    flex: 1,
-  },
-  sessionsSection: {
-    gap: WolfTheme.spacing.md,
-  },
-  sessionsList: {
-    gap: WolfTheme.spacing.md,
   },
   title: {
     fontSize: WolfTheme.typography.h2.fontSize,
@@ -355,46 +259,36 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: WolfTheme.colors.textSecondary,
-    marginTop: 2,
   },
-  newBtn: {
-    flexDirection: 'row',
+  manageBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: WolfTheme.colors.primary,
-    paddingHorizontal: WolfTheme.spacing.md,
-    paddingVertical: WolfTheme.spacing.sm,
-    borderRadius: WolfTheme.radius.button,
-    minHeight: 44,
+    justifyContent: 'center',
   },
-  newBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
+  scroll: {
+    paddingHorizontal: WolfTheme.spacing.lg,
+    paddingBottom: WolfTheme.spacing.xxl,
+    gap: WolfTheme.spacing.md,
+    paddingTop: WolfTheme.spacing.xs,
+  },
+  scrollEmpty: {
+    flexGrow: 1,
+    paddingHorizontal: WolfTheme.spacing.lg,
+    paddingBottom: WolfTheme.spacing.xxl,
+    paddingTop: WolfTheme.spacing.xs,
+    gap: WolfTheme.spacing.md,
   },
   section: {
     gap: WolfTheme.spacing.md,
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: WolfTheme.colors.textPrimary,
+  },
   cards: {
     gap: WolfTheme.spacing.md,
-  },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: WolfTheme.spacing.xxl,
-    gap: WolfTheme.spacing.md,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: WolfTheme.colors.textSecondary,
-    textAlign: 'center',
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  programCardWrapper: {
-    overflow: 'hidden',
   },
   programCard: {
     backgroundColor: WolfTheme.colors.surface,
@@ -405,6 +299,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: WolfTheme.colors.border,
     gap: WolfTheme.spacing.md,
+  },
+  programIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: WolfTheme.colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   programCardContent: {
     flex: 1,
@@ -418,6 +320,98 @@ const styles = StyleSheet.create({
   programDescription: {
     fontSize: 13,
     color: WolfTheme.colors.textSecondary,
+  },
+  programMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: WolfTheme.spacing.sm,
+    marginTop: 2,
+  },
+  programMetaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: WolfTheme.colors.surfaceLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  programMetaText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: WolfTheme.colors.textSecondary,
+  },
+  activeBadge: {
+    backgroundColor: 'rgba(34,197,94,0.12)',
+  },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: WolfTheme.colors.success,
+  },
+  activeText: {
+    color: WolfTheme.colors.success,
+  },
+  challengeCard: {
+    backgroundColor: WolfTheme.colors.surface,
+    borderRadius: WolfTheme.radius.card,
+    padding: WolfTheme.spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.25)',
+    gap: WolfTheme.spacing.md,
+  },
+  challengeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(245,158,11,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  challengeBadge: {
+    backgroundColor: 'rgba(245,158,11,0.12)',
+  },
+  challengeText: {
+    color: CHALLENGE_COLOR,
+  },
+  resumeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: WolfTheme.spacing.md,
+    backgroundColor: 'rgba(139,92,246,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.35)',
+    borderRadius: WolfTheme.radius.card,
+    padding: WolfTheme.spacing.md,
+  },
+  resumeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: WolfTheme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resumeMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  resumeTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: WolfTheme.colors.textPrimary,
+  },
+  resumeSubtitle: {
+    fontSize: 13,
+    color: WolfTheme.colors.textSecondary,
+  },
+  skeletonsContainer: {
+    paddingHorizontal: WolfTheme.spacing.lg,
+    paddingVertical: WolfTheme.spacing.xl,
+    gap: WolfTheme.spacing.md,
   },
   emptyStateContainer: {
     flex: 1,

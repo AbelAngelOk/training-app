@@ -63,28 +63,94 @@ Documentación funcional completa de cada pantalla y sus reglas de negocio.
 
 ---
 
-## /training — Dashboard de entrenamiento
+## /training — Lista de programas activos
+
+### Límites por plan (reqs. d, h, i)
+| Plan | Programas activos | Retos activos (Fase 3) |
+|---|---|---|
+| Free | 1 | 1 |
+| Premium | 3 | 3 |
+
+Programas y retos se cuentan por separado. El límite se aplica en dos capas: `useProgramLimits()` (cliente, UX) y el trigger `check_user_program_limit` (BD, garantía real — ver `docs/DATABASE.md`).
 
 ### Secciones
-- **Header**: saludo personalizado con nombre del usuario
-- **Card de programa activo**: muestra racha y próxima sesión
-- **Lista semanal**: sesiones de la semana actual según el programa activo
-- **Estado vacío**: "Sin programa activo" con CTA "Ver programas" → `/explore`
-
-### FAB (Floating Action Button)
-- Posición: inferior derecha, más abajo que el estándar actual
-- Al presionar: expande menú con dos opciones:
-  - **"Crear programa"** → navega a `/training/program/create` (solo premium; mostrar paywall para free)
-  - **"Programas preestablecidos"** → navega a `/explore`
+- **Header**: título "Entrenamiento" + cantidad de programas activos (o "Sin programas activos") + botón "Mis programas" (icono `albums-outline`) → `/training/manage-programs`
+- **Banner "Entrenamiento en curso"**: visible si hay un `workout_execution` `in_progress`; toca para reanudar la sesión donde quedó
+- **Calendario mensual combinado (req. g)**: `MonthCalendar` (grilla propia, sin librería) con navegación mes anterior/siguiente. Marca con un punto **violeta** los días comprometidos por programas activos (proyectados desde `program_days.weekday`, solo a partir de `assigned_at`) y con un punto **ámbar** los días de retos activos (proyectados `assigned_at + (day_number - 1)`). El punto aparece **relleno** si ese día ya se completó (hay un `workout_execution` `completed` real) o **hueco** si todavía está pendiente. Solo se muestra si el usuario tiene al menos un programa o reto activo.
+- **Retos activos (req. g)**: si hay alguno, una sección con una card por reto (nombre, progreso `días completados/duration_days`); tap → `/explore/challenge/[id]`.
+- **Lista de programas activos**: una card por programa asignado y activo (nombre, descripción, días/semana, badge "Activo"); tap → `/training/[id]`.
+- **Estado vacío** (solo programas): si no tiene programas activos, CTA "Explorar programas" → `/explore` y "Mis programas" → `/training/manage-programs` (por si tiene alguno desactivado para reactivar). El calendario y los retos activos igual se muestran si existen, aunque no haya programas.
 
 ### Navegación desde esta pantalla
 | Acción | Destino |
 |---|---|
-| "Ver programas" (estado vacío) | `/(tabs)/explore` |
-| FAB → "Programas preestablecidos" | `/(tabs)/explore` |
-| FAB → "Crear programa" (premium) | `/(tabs)/training/program/create` |
-| FAB → "Crear programa" (free) | Paywall modal |
-| Tap en sesión de la semana | `/(tabs)/training/session/[id]` (futuro) |
+| Tap en card de programa | `/(tabs)/training/[id]` |
+| Tap en card de reto | `/(tabs)/explore/challenge/[id]` |
+| Botón "Mis programas" (header) | `/(tabs)/training/manage-programs` |
+| "Explorar programas" (estado vacío) | `/(tabs)/explore` |
+| Banner "Entrenamiento en curso" | Pre-sesión del entrenamiento activo (reanudar) |
+
+---
+
+## /training/[id] — Detalle de programa
+
+No tiene botón "Iniciar sesión" propio: el usuario elige qué sesión entrenar tocando directamente su `SessionCard` en la lista (navega a `/training/session/[id]`).
+
+Además del calendario y lista de sesiones, el botón "⋯" del header abre un menú con:
+- **"Desactivar programa"** (solo si la asignación está activa): llama `setUserProgramActive(id, false)`, libera un cupo del plan y vuelve a la lista. El historial de ejecuciones del programa se conserva.
+- **"Gestionar programas"**: navega a `/training/manage-programs`.
+
+---
+
+## /training/manage-programs — Gestión de programas
+
+- Dos secciones: **Activos** y **Desactivados**, cada asignación con nombre, tipo (Oficial/Personal/Reto) y fecha de desactivación si aplica.
+- Cada fila tiene un botón **Activar**/**Desactivar**. Al intentar activar sin cupo disponible, se muestra un `AlertModal` de error con el límite del plan actual.
+- Reactivar reusa la fila de asignación existente (no crea una nueva copia del programa).
+
+---
+
+## /training/session/[id] — Sesión de entrenamiento
+
+### Pre-sesión (`session/[id]/index`) — "Planificación de la sesión"
+- Sección titulada **"Planificación de la sesión"**, de **solo lectura por defecto**. Un ícono de lápiz junto al título (visible solo si `canEditTargets`) alterna el modo edición; al tocarlo cambia a un check verde mientras está activo. Solo se pueden editar sesiones `type='personal'` (sesiones oficiales legacy se muestran en solo lectura con aviso de reasignar).
+- Al asignar un programa oficial desde Explore se crea una **copia personal profunda** (RPC `duplicate_program_deep`), por lo que las sesiones del usuario siempre son editables. Los cambios en modo edición se guardan al salir de cada input (`updateSessionExercise`).
+- Botón **"Iniciar sesión"**: al final del contenido scrolleable (NO sticky/fijo, debajo de la lista de ejercicios). Crea `workout_execution` (in_progress) + una `workout_exercise_execution` por ejercicio y navega a la ejecución guiada. La sesión NO inicia automáticamente al entrar.
+- Si ya existe un entrenamiento in_progress de esta sesión, el botón pasa a **"Continuar sesión"** (reanuda con las series ya registradas). Si el in_progress es de otra sesión, se bloquea el inicio con aviso.
+- Ícono de header (`stats-chart-outline`) → `/training/session/[id]/history` (progreso histórico, ver más abajo).
+
+#### Wizard obligatorio de primera vez (`session/[id]/setup`, reqs. a, b)
+- Se dispara automáticamente (redirect) la primera vez que se entra a una sesión personal sin `targets_configured_at` y sin historial `completed` (ver `docs/DATABASE.md`). Es **obligatorio**: no se puede llegar a "Iniciar sesión" sin completarlo.
+- **Paso 0 — Descanso entre series**: una única pregunta global (input en segundos + chips 30/60/90/120s) que se aplica a **todos** los ejercicios de la sesión.
+- **Pasos 1..N — uno por ejercicio**: pantalla completa por ejercicio pidiendo series, repeticiones y peso; estos valores pasan a ser los **objetivos iniciales** (`session_exercises.target_*`).
+- Al finalizar ("Guardar y comenzar"): actualiza los `target_*`/`rest_seconds` de todos los ejercicios y marca `training_sessions.targets_configured_at`, luego vuelve a la pre-sesión (ya de solo lectura, con los valores cargados).
+
+#### Ajuste de objetivos entre semanas (req. c)
+- Cada vez que se entra a la pre-sesión de una sesión con **al menos una ejecución `completed`** (propia o de una copia hermana vía `source_session_id` — ej. "sesión A" de la semana 2 compara contra la de la semana 1), aparece automáticamente `BumpTargetsModal`:
+  1. "¿Querés modificar los objetivos?" → **Sí, modificar** / **No, mantener**.
+  2. Si sí: "¿Cómo?" → **Con formulario** / **Manualmente**.
+  3. Formulario: checkboxes **Peso (+5kg)** / **Series (+1)** / **Repeticiones (+2)** — el incremento marcado se aplica a **todos** los ejercicios de la sesión de una vez; queda de solo lectura al terminar.
+  4. Manualmente: cierra el modal y activa el mismo modo edición que el ícono de lápiz (ejercicio por ejercicio).
+
+### Ejecución guiada (`session/[id]/execute`)
+- Un ejercicio por pantalla: **mitad superior video** (ExerciseDB, fallback a instrucciones), **mitad inferior series y descansos**.
+- Navegación tipo tarjetas: swipe horizontal para avanzar/saltar ejercicios; indicador de puntos en el header (violeta = actual, verde = completado).
+- Marcar una serie registra la fila en `workout_sets` (`logSet`) con el peso/reps reales; las series registradas se pueden editar (sync `updateSet` con debounce) pero no desmarcar (historial inmutable).
+- Al completar una serie arranca el **descanso** (deadline persistente, botón "Saltar"); al completar la última serie del ejercicio, el fin del descanso **auto-avanza** al próximo ejercicio incompleto.
+- Cronómetro derivado de `started_at`: sobrevive a cierres/minimizado de la app.
+- **Página final no-sticky** (`FinishSessionCard`): última página del carrusel, después del último ejercicio (se llega deslizando, no es una barra fija). Muestra tiempo transcurrido, ejercicios completados/total y el botón **"Finalizar sesión"**. Las vistas de ejercicio no muestran ninguna barra inferior.
+- **"Finalizar sesión"**: si quedan ejercicios incompletos, muestra `FinishIncompleteModal` ("Finalizar de todos modos" / "Volver a completar"); si están todos completos, finaliza directo. Al confirmar, invoca la Edge Function `complete-workout` (stats, racha, logros) y navega al resumen.
+- Botón atrás abre modal (`ConfirmExitModal`) con 4 opciones: **Guardar y salir** (queda in_progress, reanudable), **Finalizar entrenamiento incompleto** (completa ya mismo con lo hecho hasta ahora, sin pedir confirmación adicional), **Cancelar entrenamiento** (status cancelled) o **Seguir entrenando**.
+
+### Resumen (`session/[id]/summary`)
+- Duración, series completadas vs. objetivo y volumen total (Σ peso×reps).
+- Comparación **objetivo vs. realizado** serie por serie con indicador: cumplido (verde), superado (violeta), por debajo (ámbar). Ejercicios sin series figuran como salteados.
+
+### Progreso histórico (`session/[id]/history`, req. c)
+- Chips de métrica: **Peso** (volumen Σ peso×reps), **Duración**, **Reps**, **Series**. Gráfico de barras (`MiniBarChart`, sin librería externa — `View`s con altura proporcional) en orden cronológico.
+- Lista cronológica de ejecuciones (más recientes primero) con badge de **estado**: `Completada` (verde), `Fuera de día` (ámbar — se completó mostrando un día de semana distinto al planificado en `program_days.weekday`), `Cancelada` (rojo), `En curso` (violeta).
+- **Agrupa el historial de copias sucesivas de la misma plantilla**: como los programas oficiales se duplican al asignarlos (`duplicate_program_deep`), reasignar el mismo programa crea una sesión distinta pero con el mismo `source_session_id` raíz; el historial busca todas las sesiones hermanas de esa raíz para no fragmentar el progreso entre asignaciones.
+- Solo se traen las últimas 30 ejecuciones (`api/workouts.ts#getSessionExecutionHistory`).
 
 ---
 
@@ -108,12 +174,17 @@ Solo usuarios `premium_user`, `coach` o `admin`. Free users ven paywall.
 
 ---
 
-## /explore — Catálogo de programas
+## /explore — Programas y Retos (reqs. e, f)
 
 ### Secciones
-- **Búsqueda**: filtro por nombre
-- **Programas oficiales**: cards con nombre, duración, días, nivel de dificultad
-- **Estado vacío**: mientras carga o sin resultados
+- **Carrusel "Programas"**: hasta 6 programas oficiales en fila horizontal, título + botón "Ver todo" → `/explore/programs`.
+- **Carrusel "Retos"**: hasta 6 retos en fila horizontal (mismo patrón), → `/explore/challenges`. Card con ícono de llama y badge de duración en días.
+- Componente compartido: `src/components/explore/SectionCarousel.tsx` (título + "Ver todo" + `FlatList` horizontal, cap de 6 ítems).
+- **Estado vacío**: mientras carga o sin resultados en cada carrusel.
+
+### /explore/programs y /explore/challenges — "Ver todo"
+- Listado paginado de a 10 (`useInfinitePrograms`/`useInfiniteChallenges`, scroll infinito), con buscador (`SearchInput`, debounce 300ms).
+- Retos además tienen chips de filtro por duración ("Hasta 14 días" / "15+ días").
 
 ### Programas oficiales iniciales
 
@@ -130,9 +201,18 @@ Solo usuarios `premium_user`, `coach` o `admin`. Free users ven paywall.
 - Nivel: Intermedio
 
 ### Acción sobre un programa
-- Ver detalle: sesiones y ejercicios
-- Asignar como programa activo (todos los usuarios)
-- Duplicar y personalizar (solo premium — futuro en v1.1)
+- Ver detalle: sesiones y ejercicios reales (`useProgramWithExercises`, ya no mockeados).
+- Asignar como programa activo (todos los usuarios). Al asignar un programa **oficial** se crea una copia personal profunda (RPC `duplicate_program_deep`: programa + días + sesiones + ejercicios) y la asignación apunta a la copia; así el usuario puede editar sus objetivos (peso/reps/series) sin afectar la plantilla compartida. La copia personal anterior se conserva (con su historial); solo se reemplaza la asignación.
+- **Límite de plan**: si el usuario ya alcanzó su cupo de programas activos (1 free / 3 premium — ver `docs/DATABASE.md`), la asignación se bloquea antes de llamar a la API y se muestra un `AlertModal` con CTA a `/training/manage-programs` para desactivar otro programa. Reasignar un programa que ya tiene una fila de asignación (por ejemplo, uno desactivado) reactiva esa fila en vez de duplicar de nuevo.
+
+---
+
+## /explore/challenge/[id] — Detalle de reto (reqs. e, f)
+
+- Un reto tiene la estructura de un programa pero simplificada: `duration_days` días consecutivos, cada uno una sesión con (típicamente) un solo ejercicio y un objetivo directo (ej. "Día 3 — Burpees: 1×11"). Se listan en orden con su objetivo.
+- **Logro asociado**: cada reto tiene un `achievement_id` fijo. La pantalla muestra una card con el logro que se desbloquea al completar todos los días.
+- **"Comenzar reto"**: `assignChallenge` — a diferencia de los programas, el reto NO se duplica (sus objetivos son fijos); `user_programs` apunta directo a la plantilla. Respeta el límite de plan (1 free / 3 premium, contado por separado de los programas normales).
+- **Desbloqueo del logro**: los días del reto son sesiones normales, así que se ejecutan con el flujo guiado de siempre (`/training/session/[id]`). Al completar una sesión, la Edge Function `complete-workout` revisa si pertenece a un reto activo del usuario; si ya se completaron sus `duration_days` sesiones (contando días distintos, no repeticiones), desbloquea el `achievement_id` en `user_achievements` y marca `user_programs.completed_at`. El logro queda visible en `/profile/achievements`.
 
 ---
 
@@ -248,6 +328,9 @@ Solo usuarios `premium_user`, `coach` o `admin`. Free users ven paywall.
 | `TEN_THOUSAND_KG` | 10,000 kg levantados | 10,000 kg acumulados |
 | `HUNDRED_THOUSAND_KG` | 100,000 kg levantados | 100,000 kg acumulados |
 | `MARATHON` | Maratonista | 42+ km recorridos |
+| `CHALLENGE_BURPEES_7_DAYS` | Reto: 7 días de burpees | Completar los 7 días del reto (ver `/explore/challenge/[id]`) |
+
+Los logros de tipo `FIRST_WORKOUT`…`MARATHON` son evaluados por stats (`process-achievements`, condición genérica sobre `user_stats`). Los logros de retos (uno por cada `workout_programs.type='challenge'`, vía `achievement_id`) los desbloquea directamente la Edge Function `complete-workout` al detectar que se completaron todos los días del reto — ver `docs/FEATURES.md#explorechallengeid--detalle-de-reto-reqs-e-f`.
 
 ### Vista
 - Grid de logros (desbloqueados en color, bloqueados en gris)

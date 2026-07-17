@@ -1,109 +1,70 @@
-﻿import { useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
 
 import { WolfTheme } from '@/constants/colors'
 import { useOfficialPrograms } from '@/hooks/use-programs'
-import type { WorkoutProgramRow } from '@/types/database'
-
-function ProgramCard({
-  program,
-  onViewDetails,
-}: {
-  program: WorkoutProgramRow
-  onViewDetails: (id: string) => void
-}) {
-  return (
-    <View testID="explore-program-card" style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text testID="explore-program-card-name" style={styles.cardName}>{program.name}</Text>
-      </View>
-      {program.description && (
-        <Text style={styles.cardDescription} numberOfLines={2}>
-          {program.description}
-        </Text>
-      )}
-      <TouchableOpacity
-        testID="explore-program-card-details-button"
-        style={styles.assignButton}
-        onPress={() => onViewDetails(program.id)}
-      >
-        <Text style={styles.assignButtonText}>Ver detalle</Text>
-        <Ionicons name="chevron-forward" size={18} color="#fff" />
-      </TouchableOpacity>
-    </View>
-  )
-}
+import { useChallenges } from '@/hooks/use-challenges'
+import { SectionCarousel } from '@/components/explore/SectionCarousel'
+import { ProgramCard } from '@/components/explore/ProgramCard'
+import { ChallengeCard } from '@/components/explore/ChallengeCard'
+import { ProgramCardSkeleton } from '@/components/training/skeletons/ProgramCardSkeleton'
 
 export default function ExploreScreen() {
-  const [query, setQuery] = useState('')
-  const { data: programs, isLoading } = useOfficialPrograms()
-
-  const filtered = (programs ?? []).filter((p) =>
-    p.name.toLowerCase().includes(query.toLowerCase())
-  )
-
-  const handleViewDetails = (programId: string) => {
-    router.push(`/(tabs)/explore/${programId}`)
-  }
+  const { data: programs, isLoading: loadingPrograms } = useOfficialPrograms()
+  const { data: challenges, isLoading: loadingChallenges } = useChallenges()
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Explorar</Text>
-        <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={18} color={WolfTheme.colors.textSecondary} />
-          <TextInput
-            testID="explore-search-input"
-            style={styles.searchInput}
-            placeholder="Buscar programas..."
-            placeholderTextColor={WolfTheme.colors.textSecondary}
-            value={query}
-            onChangeText={setQuery}
-          />
-        </View>
       </View>
 
-      {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={WolfTheme.colors.primary} />
-        </View>
-      ) : filtered.length === 0 ? (
-        <View testID="explore-empty-state" style={styles.emptyState}>
-          <Ionicons name="compass-outline" size={48} color={WolfTheme.colors.textSecondary} />
-          <Text style={styles.emptyTitle}>
-            {query ? 'Sin resultados' : 'Sin programas disponibles'}
-          </Text>
-          <Text style={styles.emptyText}>
-            {query
-              ? 'Probá con otro término de búsqueda.'
-              : 'Los programas oficiales estarán disponibles próximamente.'}
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <ProgramCard
-              program={item}
-              onViewDetails={handleViewDetails}
-            />
-          )}
-        />
-      )}
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {loadingPrograms ? (
+          <View style={styles.skeletonSection}>
+            <ProgramCardSkeleton />
+          </View>
+        ) : (
+          <SectionCarousel
+            title="Programas"
+            items={programs ?? []}
+            keyExtractor={(p) => p.id}
+            testIDPrefix="explore-programs"
+            emptyLabel="Los programas oficiales estarán disponibles próximamente."
+            onViewAll={() => router.push('/(tabs)/explore/programs')}
+            renderItem={(program) => (
+              <ProgramCard
+                variant="carousel"
+                program={program}
+                onPress={() => router.push(`/(tabs)/explore/${program.id}`)}
+              />
+            )}
+          />
+        )}
+
+        {loadingChallenges ? (
+          <View style={styles.skeletonSection}>
+            <ProgramCardSkeleton />
+          </View>
+        ) : (
+          <SectionCarousel
+            title="Retos"
+            items={challenges ?? []}
+            keyExtractor={(c) => c.id}
+            testIDPrefix="explore-challenges"
+            emptyLabel="Los retos estarán disponibles próximamente."
+            onViewAll={() => router.push('/(tabs)/explore/challenges')}
+            renderItem={(challenge) => (
+              <ChallengeCard
+                variant="carousel"
+                challenge={challenge}
+                onPress={() => router.push(`/(tabs)/explore/challenge/${challenge.id}`)}
+              />
+            )}
+          />
+        )}
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -116,93 +77,19 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: WolfTheme.spacing.lg,
     paddingTop: WolfTheme.spacing.md,
-    gap: WolfTheme.spacing.md,
+    paddingBottom: WolfTheme.spacing.sm,
   },
   title: {
     fontSize: WolfTheme.typography.h2.fontSize,
     fontWeight: WolfTheme.typography.h2.fontWeight,
     color: WolfTheme.colors.textPrimary,
   },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: WolfTheme.colors.surface,
-    borderRadius: WolfTheme.radius.input,
-    borderWidth: 1,
-    borderColor: WolfTheme.colors.border,
-    paddingHorizontal: WolfTheme.spacing.md,
-    height: 48,
-    gap: WolfTheme.spacing.sm,
+  scroll: {
+    paddingVertical: WolfTheme.spacing.md,
+    gap: WolfTheme.spacing.xl,
+    paddingBottom: WolfTheme.spacing.xxl,
   },
-  searchInput: {
-    flex: 1,
-    color: WolfTheme.colors.textPrimary,
-    fontSize: 15,
-  },
-  list: {
-    padding: WolfTheme.spacing.lg,
-    gap: WolfTheme.spacing.md,
-  },
-  card: {
-    backgroundColor: WolfTheme.colors.surface,
-    borderRadius: WolfTheme.radius.card,
-    padding: WolfTheme.spacing.lg,
-    borderWidth: 1,
-    borderColor: WolfTheme.colors.border,
-    gap: WolfTheme.spacing.md,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  cardName: {
-    fontSize: WolfTheme.typography.h3.fontSize,
-    fontWeight: WolfTheme.typography.h3.fontWeight,
-    color: WolfTheme.colors.textPrimary,
-    flex: 1,
-  },
-  cardDescription: {
-    fontSize: WolfTheme.typography.caption.fontSize,
-    color: WolfTheme.colors.textSecondary,
-    lineHeight: 20,
-  },
-  assignButton: {
-    backgroundColor: WolfTheme.colors.primary,
-    borderRadius: WolfTheme.radius.button,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  assignButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: WolfTheme.colors.background,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: WolfTheme.spacing.xl,
-    gap: WolfTheme.spacing.sm,
-  },
-  emptyTitle: {
-    fontSize: WolfTheme.typography.h3.fontSize,
-    fontWeight: WolfTheme.typography.h3.fontWeight,
-    color: WolfTheme.colors.textPrimary,
-    marginTop: WolfTheme.spacing.sm,
-  },
-  emptyText: {
-    fontSize: WolfTheme.typography.caption.fontSize,
-    color: WolfTheme.colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
+  skeletonSection: {
+    paddingHorizontal: WolfTheme.spacing.lg,
   },
 })

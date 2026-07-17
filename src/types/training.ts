@@ -1,3 +1,5 @@
+import type { ExerciseRow } from './database'
+
 export type DayCode = 'L' | 'M' | 'X' | 'J' | 'V' | 'S' | 'D'
 export type SessionStatus = 'pending' | 'completed' | 'late' | 'incomplete'
 
@@ -6,6 +8,24 @@ export interface WorkoutSet {
   weight: number
   reps: number
   completed: boolean
+  /** 1-based position of the set; mirrors workout_sets.set_number */
+  setNumber?: number
+  /** workout_sets.id once the set has been logged to the database */
+  dbId?: string
+}
+
+/** One exercise inside an in-progress guided workout execution */
+export interface ExecutionExercise {
+  sessionExerciseId: string
+  exerciseExecutionId: string | null
+  name: string
+  muscleGroup: string
+  targetSets: number
+  targetReps: number
+  targetWeight: number | null
+  restSeconds: number
+  exercise: ExerciseRow
+  sets: WorkoutSet[]
 }
 
 export interface Exercise {
@@ -28,6 +48,7 @@ export interface Session {
   icon: string
   estimatedMinutes: number
   exercises: Exercise[]
+  exerciseCount?: number
   status: SessionStatus
   scheduledDate: Date
 }

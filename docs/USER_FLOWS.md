@@ -97,34 +97,83 @@
 
 ---
 
+## Wizard inicial de objetivos y ajuste entre semanas (reqs. a, b, c)
+
+```
+[/training/session/[id]] — Pre-sesión
+      │
+      ▼ useSessionHistory(id) resuelve si hay ejecuciones completed (propias
+        o de copias hermanas por source_session_id)
+      │
+      ├── Sin targets_configured_at Y sin historial completed (primera vez)
+      │     ▼ router.replace a .../setup (OBLIGATORIO)
+      │   [/training/session/[id]/setup]
+      │     ├── Paso 0: descanso entre series (único, aplica a todos los ejercicios)
+      │     ├── Pasos 1..N: un paso por ejercicio (series/reps/peso) — estos
+      │     │   valores pasan a ser los objetivos iniciales
+      │     ▼ "Guardar y comenzar"
+      │   [Promise.all] updateSessionExercise() por ejercicio + rest_seconds
+      │     + markSessionTargetsConfigured(sessionId)
+      │     └── router.replace de vuelta a la pre-sesión (ya no es "primera vez")
+      │
+      └── Con historial completed (ya se usó antes) → BumpTargetsModal automático
+            ├── "¿Modificar objetivos?" → No, mantener → cierra, sigue solo lectura
+            └── → Sí, modificar → "¿Cómo?"
+                  ├── Con formulario → checkboxes Peso(+5kg)/Series(+1)/Reps(+2)
+                  │     ▼ "Aplicar a todos los ejercicios"
+                  │   Promise.all updateSessionExercise() con los deltas elegidos
+                  │     sobre TODOS los ejercicios de la sesión
+                  └── Manualmente → cierra el modal y activa el mismo modo edición
+                        que el ícono de lápiz (edición ejercicio por ejercicio)
+```
+
+---
+
 ## Ejecución de entrenamiento
 
 ```
 [/training — Con programa activo]
       │
       ▼ Toca sesión del día
-[/training/session/[id]]
-  └── Lista de ejercicios con targets
-      │
-      ▼ "Iniciar entrenamiento"
+[/training/session/[id]] — Pre-sesión ("Planificación de la sesión")
+  ├── Solo lectura por defecto; ícono de lápiz activa edición manual
+  │     └── updateSessionExercise() al salir de cada input
+  │         (solo sesiones personales; las oficiales son de solo lectura)
+  ├── Si hay workout_execution in_progress de ESTA sesión → botón "Continuar sesión"
+  │     └── Rehidrata el store desde getActiveWorkout() y va a execute
+  │
+  ▼ "Iniciar sesión"
 [startWorkout(sessionId)]
-  └── Crea workout_execution (status: in_progress)
+  ├── Crea workout_execution (status: in_progress)
+  ├── Crea workout_exercise_executions (una por ejercicio, upfront)
+  └── Hidrata active-workout-store (executionId, startedAt, mapa de executions)
       │
-[/training/activity/[executionId]]
-  ├── Para cada ejercicio:
-  │     └── Para cada serie: logSet(payload)
-  └── Al completar todos los ejercicios o presionar "Finalizar":
-        │
-        ▼ completeWorkoutWithStats(executionId)
-        └── Edge Function: complete-workout
-              ├── Actualiza workout_execution (status: completed)
-              ├── Actualiza user_stats
-              ├── Actualiza calendar_event
-              └── Dispara process-achievements
-                    │
-                    ▼
-[Post-workout summary]
-  └── Muestra: duración, series, peso, racha
+[/training/session/[id]/execute] — Ejecución guiada
+  ├── Un ejercicio por pantalla: video arriba (ExerciseVideoDisplay),
+  │   series abajo (SeriesCard); swipe horizontal para saltar ejercicios
+  ├── Al marcar una serie: logSet(payload) → fila en workout_sets
+  │     ├── Editar una serie ya registrada → updateSet() (debounced)
+  │     └── Arranca descanso (RestCountdown con deadline)
+  ├── Al completar la última serie: descanso → auto-avance al próximo
+  │   ejercicio incompleto
+  ├── Cronómetro derivado de started_at (sobrevive a cierres de app)
+  └── Botón atrás → ConfirmExitModal:
+        ├── "Guardar y salir" → queda in_progress (reanudable desde banner
+        │   "Entrenamiento en curso" en /training)
+        └── "Cancelar entrenamiento" → cancelWorkout() (status: cancelled)
+      │
+      ▼ "Finalizar sesión"
+completeWorkoutWithStats(executionId)
+  └── Edge Function: complete-workout
+        ├── Actualiza workout_execution (status: completed)
+        ├── Actualiza user_stats
+        ├── Actualiza calendar_event
+        └── Dispara process-achievements
+              │
+              ▼
+[/training/session/[id]/summary] — Resumen
+  └── Muestra: duración, series, volumen total y comparación
+      objetivo vs. realizado serie por serie (cumplido / superado / debajo)
 ```
 
 ---
@@ -210,4 +259,64 @@
         INSERT INTO user_achievements (user_id, achievement_id, unlocked_at)
               │
               ▼ (futuro: push notification "¡Nuevo logro desbloqueado!")
+```
+
+---
+
+## Reto: asignación y desbloqueo del logro asociado
+
+```
+[/explore — carrusel "Retos" o /explore/challenges]
+      │
+      ▼ Tap en un reto
+[/explore/challenge/[id]]
+  ├── Muestra días 1..duration_days con su objetivo y el logro asociado
+  │
+  ▼ "Comenzar reto"
+[assignChallenge(userId, challengeId)]
+  ├── Chequea límite de plan (1 free / 3 premium, retos aparte de programas)
+  ├── NO duplica (targets fijos) → user_programs apunta directo a la plantilla
+  └── Reactiva la fila existente si el usuario ya lo había asignado antes
+      │
+[/training — el reto es una sesión más; se ejecuta con el flujo normal]
+      │
+      ▼ Día N: /training/session/[id] → iniciar → execute → finalizar
+[completeWorkoutWithStats(executionId)] → Edge Function complete-workout
+  ├── (flujo de stats/achievements normal, sin cambios)
+  └── maybeCompleteChallenge(userId, training_session_id):
+        ├── ¿La sesión pertenece a un program_days de un reto activo del usuario?
+        ├── Cuenta sesiones distintas del reto con ejecución completed
+        └── Si count == duration_days:
+              ├── INSERT user_achievements (achievement_id del reto) ON CONFLICT DO NOTHING
+              └── UPDATE user_programs SET completed_at
+                    │
+                    ▼
+        [Logro visible en /profile/achievements]
+```
+
+---
+
+## Progreso histórico y calendario combinado
+
+```
+[/training/session/[id] — Pre-sesión]
+      │
+      ▼ Ícono "stats-chart-outline" del header
+[/training/session/[id]/history]
+  ├── getSessionExecutionHistory(userId, sessionId)
+  │     ├── Resuelve la plantilla raíz (source_session_id ?? id)
+  │     ├── Busca sesiones hermanas (copias sucesivas de la misma raíz)
+  │     └── Trae hasta 30 workout_executions (todos los status) + sets anidados
+  ├── buildSessionHistory(): agrega volumen/duración/reps/series y deriva estado
+  │     (completed / completed_off_schedule / cancelled / in_progress)
+  └── Chips de métrica + MiniBarChart + lista cronológica con badge de estado
+
+[/training — calendario combinado]
+  ├── useTrainingCommitments(month):
+  │     ├── Proyecta días de programas activos desde program_days.weekday
+  │     │   (solo a partir de assigned_at)
+  │     ├── Proyecta días de retos activos: assigned_at + (day_number - 1)
+  │     └── Overlay de getCompletedExecutionDates(): marca cada punto como
+  │           relleno (completado) u hueco (pendiente)
+  └── MonthCalendar: grilla mensual con puntos violeta (programas) y ámbar (retos)
 ```

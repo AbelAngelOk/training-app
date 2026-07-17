@@ -61,7 +61,7 @@ export async function getPendingFriendRequests(userId: string): Promise<FriendRe
     .eq('status', 'pending')
     .order('created_at', { ascending: false })
   if (error) throw error
-  return data as FriendRequestWithProfiles[]
+  return data as unknown as FriendRequestWithProfiles[]
 }
 
 export async function updateFriendRequestStatus(

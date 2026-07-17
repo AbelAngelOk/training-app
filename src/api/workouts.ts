@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type {
+  Weekday,
   WorkoutExecutionRow,
   WorkoutExerciseExecutionRow,
   WorkoutSetRow,
@@ -123,6 +124,130 @@ export async function getWorkout(id: string): Promise<WorkoutExecutionWithDetail
     .maybeSingle()
   if (error) throw error
   return data as WorkoutExecutionWithDetails | null
+}
+
+export type SessionHistoryExecution = WorkoutExecutionRow & {
+  training_session_id: string
+  workout_exercise_executions: (WorkoutExerciseExecutionRow & {
+    session_exercises: {
+      id: string
+      sort_order: number
+      target_sets: number | null
+      target_reps: number | null
+      target_weight: number | null
+      exercises: { name: string }
+    }
+    workout_sets: WorkoutSetRow[]
+  })[]
+}
+
+export interface SessionExecutionHistory {
+  executions: SessionHistoryExecution[]
+  /** training_session_id -> planned weekday, for the "off schedule" check */
+  plannedWeekdayBySession: Record<string, Weekday | null>
+}
+
+const HISTORY_LIMIT = 30
+
+/**
+ * Progress history for a session across time. Because official programs are
+ * deep-copied per user on assignment (see duplicate_program_deep), successive
+ * assignments produce distinct training_sessions rows that all share the same
+ * root via source_session_id — this resolves that root and pulls executions
+ * from every copy so reassigning the same program doesn't fragment history.
+ */
+export async function getSessionExecutionHistory(
+  userId: string,
+  sessionId: string
+): Promise<SessionExecutionHistory> {
+  const { data: session, error: sessionError } = await supabase
+    .from('training_sessions')
+    .select('id, source_session_id')
+    .eq('id', sessionId)
+    .maybeSingle()
+  if (sessionError) throw sessionError
+  if (!session) return { executions: [], plannedWeekdayBySession: {} }
+
+  const root = session.source_session_id ?? session.id
+
+  const { data: siblings, error: siblingsError } = await supabase
+    .from('training_sessions')
+    .select('id')
+    .or(`id.eq.${root},source_session_id.eq.${root}`)
+  if (siblingsError) throw siblingsError
+
+  const sessionIds = (siblings ?? []).map((s) => s.id)
+  if (sessionIds.length === 0) return { executions: [], plannedWeekdayBySession: {} }
+
+  const [{ data: executions, error: executionsError }, { data: days, error: daysError }] =
+    await Promise.all([
+      supabase
+        .from('workout_executions')
+        .select(`
+          *,
+          workout_exercise_executions (
+            *,
+            session_exercises (
+              id, sort_order, target_sets, target_reps, target_weight,
+              exercises ( name )
+            ),
+            workout_sets ( * )
+          )
+        `)
+        .eq('user_id', userId)
+        .in('training_session_id', sessionIds)
+        .order('started_at', { ascending: false })
+        .range(0, HISTORY_LIMIT - 1),
+      supabase.from('program_days').select('training_session_id, weekday').in('training_session_id', sessionIds),
+    ])
+  if (executionsError) throw executionsError
+  if (daysError) throw daysError
+
+  const plannedWeekdayBySession: Record<string, Weekday | null> = {}
+  for (const day of days ?? []) {
+    plannedWeekdayBySession[day.training_session_id] = day.weekday
+  }
+
+  return {
+    executions: executions as unknown as SessionHistoryExecution[],
+    plannedWeekdayBySession,
+  }
+}
+
+/** Distinct sessions (of the given ids) with at least one completed execution, all-time */
+export async function getCompletedSessionIds(
+  userId: string,
+  sessionIds: string[]
+): Promise<string[]> {
+  if (sessionIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('workout_executions')
+    .select('training_session_id')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .in('training_session_id', sessionIds)
+  if (error) throw error
+  return [...new Set((data ?? []).map((d) => d.training_session_id))]
+}
+
+/** Completed executions (session id + date) used to mark calendar days as done */
+export async function getCompletedExecutionDates(
+  userId: string,
+  sessionIds: string[],
+  from: string,
+  to: string
+): Promise<{ training_session_id: string; completed_at: string }[]> {
+  if (sessionIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('workout_executions')
+    .select('training_session_id, completed_at')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .in('training_session_id', sessionIds)
+    .gte('completed_at', from)
+    .lte('completed_at', to)
+  if (error) throw error
+  return (data ?? []) as { training_session_id: string; completed_at: string }[]
 }
 
 export async function createExerciseExecution(payload: {

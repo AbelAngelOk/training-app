@@ -125,10 +125,14 @@ Deno.serve(async (req) => {
       .eq('scheduled_date', todayStr)
       .eq('status', 'scheduled')
 
-    // Process achievements asynchronously
+    // Process stat-based achievements asynchronously
     await supabaseService.functions.invoke('process-achievements', {
       body: { user_id: user.id },
     })
+
+    // If this session is a day of an active challenge, check whether all its
+    // days are now completed and unlock the challenge's achievement.
+    await maybeCompleteChallenge(supabaseService, user.id, execution.training_session_id)
 
     return json({
       success: true,
@@ -143,6 +147,71 @@ Deno.serve(async (req) => {
     return json({ error: error.message }, 500)
   }
 })
+
+/**
+ * Challenges reuse training_sessions/program_days (type='challenge', day_number
+ * instead of weekday). If the just-completed session belongs to an active
+ * challenge of this user, count how many distinct challenge days already have
+ * a completed execution; once every day is covered, unlock the challenge's
+ * achievement and stamp user_programs.completed_at.
+ */
+async function maybeCompleteChallenge(
+  supabaseService: ReturnType<typeof createClient>,
+  userId: string,
+  trainingSessionId: string
+) {
+  const { data: day } = await supabaseService
+    .from('program_days')
+    .select('workout_program_id, workout_programs!inner(id, duration_days, achievement_id, type)')
+    .eq('training_session_id', trainingSessionId)
+    .eq('workout_programs.type', 'challenge')
+    .maybeSingle()
+
+  if (!day) return
+
+  const challenge = (day as any).workout_programs
+  if (!challenge?.duration_days || !challenge?.achievement_id) return
+
+  const { data: userProgram } = await supabaseService
+    .from('user_programs')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('workout_program_id', challenge.id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (!userProgram) return
+
+  const { data: challengeDays } = await supabaseService
+    .from('program_days')
+    .select('training_session_id')
+    .eq('workout_program_id', challenge.id)
+
+  const sessionIds = (challengeDays ?? []).map((d) => d.training_session_id)
+  if (sessionIds.length === 0) return
+
+  const { data: completions } = await supabaseService
+    .from('workout_executions')
+    .select('training_session_id')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .in('training_session_id', sessionIds)
+
+  const completedSessionIds = new Set((completions ?? []).map((c) => c.training_session_id))
+  if (completedSessionIds.size < challenge.duration_days) return
+
+  await supabaseService
+    .from('user_achievements')
+    .upsert(
+      { user_id: userId, achievement_id: challenge.achievement_id, unlocked_at: new Date().toISOString() },
+      { onConflict: 'user_id,achievement_id', ignoreDuplicates: true }
+    )
+
+  await supabaseService
+    .from('user_programs')
+    .update({ completed_at: new Date().toISOString() })
+    .eq('id', userProgram.id)
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

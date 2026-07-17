@@ -4,6 +4,7 @@ import {
   cancelWorkout,
   createExerciseExecution,
   getActiveWorkout,
+  getSessionExecutionHistory,
   getWorkout,
   getWorkoutHistory,
   logSet,
@@ -11,6 +12,7 @@ import {
   updateSet,
 } from '@/api/workouts'
 import { QUERY_KEYS } from '@/constants/query-keys'
+import { buildSessionHistory } from '@/services/session-history-service'
 import { completeWorkoutWithStats } from '@/services/workout-service'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -30,6 +32,19 @@ export function useWorkoutHistory(limit = 20) {
     queryKey: QUERY_KEYS.WORKOUT_HISTORY,
     queryFn: () => getWorkoutHistory(user!.id, limit),
     enabled: !!user,
+  })
+}
+
+/** Progress history of a session (across time and across copies of the same root template) */
+export function useSessionHistory(sessionId: string) {
+  const user = useAuthStore((s) => s.user)
+  return useQuery({
+    queryKey: QUERY_KEYS.SESSION_HISTORY(sessionId),
+    queryFn: async () => {
+      const raw = await getSessionExecutionHistory(user!.id, sessionId)
+      return buildSessionHistory(raw)
+    },
+    enabled: !!user && !!sessionId,
   })
 }
 

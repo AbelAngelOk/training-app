@@ -42,7 +42,7 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
           </View>
           <View style={styles.badge}>
             <Ionicons name="barbell-outline" size={12} color={WolfTheme.colors.textSecondary} />
-            <Text style={styles.badgeText}>{session.exercises.length} ejercicios</Text>
+            <Text style={styles.badgeText}>{session.exerciseCount ?? session.exercises.length} ejercicios</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusColor.bg }]}>
             <Ionicons name={statusColor.icon as any} size={12} color={statusColor.text} />

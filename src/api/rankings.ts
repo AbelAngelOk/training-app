@@ -30,7 +30,7 @@ export async function getRankings(
 
   const { data, error } = await query
   if (error) throw error
-  return data as RankingEntry[]
+  return data as unknown as RankingEntry[]
 }
 
 export async function getFriendRankings(
@@ -55,5 +55,5 @@ export async function getFriendRankings(
     .in('user_id', userIds)
     .order('value', { ascending: false })
   if (error) throw error
-  return data as RankingEntry[]
+  return data as unknown as RankingEntry[]
 }

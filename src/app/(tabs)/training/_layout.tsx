@@ -14,8 +14,22 @@ export default function TrainingLayout() {
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="create-program" options={{ title: 'Crear programa' }} />
+      <Stack.Screen name="manage-programs" options={{ headerShown: false }} />
       <Stack.Screen name="[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="session/[id]" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="session/[id]/index" options={{ headerShown: false }} />
+      <Stack.Screen name="session/[id]/history" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="session/[id]/setup"
+        options={{ headerShown: false, gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="session/[id]/execute"
+        options={{ headerShown: false, gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="session/[id]/summary"
+        options={{ headerShown: false, gestureEnabled: false }}
+      />
     </Stack>
   )
 }

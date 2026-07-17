@@ -83,11 +83,13 @@ Corren en Deno (runtime de Supabase). Usan `service_role` internamente y verific
 
 | Función | Trigger | Responsabilidad |
 |---|---|---|
-| `complete-workout` | Mobile al terminar sesión | Actualiza stats, streak, calendar_event; dispara achievements |
+| `complete-workout` | Mobile al terminar sesión | Actualiza stats, streak, calendar_event; dispara achievements (stats) y, si la sesión pertenece a un reto activo, desbloquea el logro del reto al completar todos sus días |
 | `process-achievements` | Llamada por complete-workout | Evalúa y desbloquea logros |
 | `accept-friend-request` | Mobile al aceptar solicitud | Crea registro en `friendships` |
 | `generate-rankings` | Cron job diario | Genera ranking_snapshots para usuarios premium |
 | `schedule-calendar-events` | Cron job diario | Genera eventos de calendario de los próximos 14 días |
+
+> ⚠️ **Bug conocido**: `schedule-calendar-events` no filtra `user_programs.is_active` (columna agregada en la migración `20260710000005`, posterior a la última revisión de esta función), por lo que puede seguir generando `calendar_events` para programas que el usuario ya desactivó. El calendario combinado de `/training` (`docs/FEATURES.md`) no depende de esta función — proyecta los días comprometidos directamente desde `program_days` de las asignaciones activas — así que no se ve afectado, pero conviene corregir este filtro si `calendar_events` se usa en otro lado.
 
 ---
 

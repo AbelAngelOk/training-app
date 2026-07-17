@@ -11,10 +11,13 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 
 import { WolfTheme } from '@/constants/colors'
-import { useProgram, useAssignProgram } from '@/hooks/use-programs'
+import { useProgramWithExercises, useAssignProgram } from '@/hooks/use-programs'
+import { useProgramLimits } from '@/hooks/use-program-limits'
+import { ProgramLimitError } from '@/api/programs'
 import { AlertModal } from '@/components/ui/AlertModal'
-import { SessionCard } from '@/components/training/cards/SessionCard'
+import { SessionAccordion } from '@/components/training/cards/SessionAccordion'
 import { WeekCalendar } from '@/components/training/shared/WeekCalendar'
+import { ProgramDetailSkeleton } from '@/components/training/skeletons/ProgramDetailSkeleton'
 import type { DayCode, Session } from '@/types/training'
 
 const DAY_LABEL: Record<DayCode, string> = {
@@ -44,6 +47,8 @@ export default function ExploreDetailScreen() {
     type: 'success' | 'error'
     title: string
     message: string
+    ctaLabel?: string
+    onCta?: () => void
   }>({
     visible: false,
     type: 'info' as 'success' | 'error',
@@ -51,11 +56,32 @@ export default function ExploreDetailScreen() {
     message: '',
   })
 
-  const { data: program, isLoading } = useProgram(id || '')
+  const { data: program, isLoading } = useProgramWithExercises(id || '')
   const { mutateAsync: assignProgram, isPending: isAssigning } = useAssignProgram()
+  const { canActivate, maxAllowed, isPremium } = useProgramLimits('program')
+
+  const showLimitAlert = () => {
+    setAlertModal({
+      visible: true,
+      type: 'error',
+      title: 'Límite de programas alcanzado',
+      message: isPremium
+        ? `Tu plan premium permite hasta ${maxAllowed} programas activos. Desactivá uno desde "Mis programas" para usar este.`
+        : 'Tu plan free permite 1 programa activo. Desactivá el actual desde "Mis programas" para usar este, o pasate a premium para tener hasta 3.',
+      ctaLabel: 'Ir a Mis programas',
+      onCta: () => {
+        setAlertModal((prev) => ({ ...prev, visible: false }))
+        router.push('/(tabs)/training/manage-programs')
+      },
+    })
+  }
 
   const handleAssignProgram = async () => {
     if (!id) return
+    if (!canActivate) {
+      showLimitAlert()
+      return
+    }
     try {
       await assignProgram(id)
       setAlertModal({
@@ -68,6 +94,10 @@ export default function ExploreDetailScreen() {
         router.replace('/(tabs)/training')
       }, 1500)
     } catch (error) {
+      if (error instanceof ProgramLimitError) {
+        showLimitAlert()
+        return
+      }
       console.error('Error assigning program:', error)
       setAlertModal({
         visible: true,
@@ -80,11 +110,10 @@ export default function ExploreDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.center}>
-          <Ionicons name="hourglass" size={40} color={WolfTheme.colors.textSecondary} />
-          <Text style={styles.loadingText}>Cargando programa...</Text>
-        </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <ProgramDetailSkeleton />
+        </ScrollView>
       </SafeAreaView>
     )
   }
@@ -114,17 +143,31 @@ export default function ExploreDetailScreen() {
   })
 
   const sessions: Session[] = programDays
-    .map((pd: any) => ({
-      id: pd.training_sessions.id,
-      name: pd.training_sessions.name,
-      muscleGroup: program.description || '',
-      dayCode: weekdayToCode[pd.weekday] as DayCode,
-      icon: 'fitness-outline',
-      estimatedMinutes: pd.training_sessions.estimated_duration_minutes || 60,
-      exercises: [],
-      status: 'pending' as const,
-      scheduledDate: new Date(),
-    }))
+    .map((pd: any) => {
+      const sessionExercises = pd.training_sessions.session_exercises ?? []
+      return {
+        id: pd.training_sessions.id,
+        name: pd.training_sessions.name,
+        muscleGroup: program.description || '',
+        dayCode: weekdayToCode[pd.weekday] as DayCode,
+        icon: 'fitness-outline',
+        estimatedMinutes: pd.training_sessions.estimated_duration_minutes || 60,
+        exercises: sessionExercises.map((se: any) => ({
+          id: se.id,
+          name: se.exercises.name,
+          muscleGroup: se.exercises.muscle_groups?.name ?? '',
+          targetSets: se.target_sets ?? 3,
+          targetReps: se.target_reps ?? 10,
+          restSeconds: se.rest_seconds ?? 60,
+          lastWeight: 0,
+          lastReps: 0,
+          sets: [],
+        })),
+        exerciseCount: sessionExercises.length,
+        status: 'pending' as const,
+        scheduledDate: new Date(),
+      }
+    })
     .sort((a, b) => {
       const dayOrder = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
       return dayOrder.indexOf(a.dayCode) - dayOrder.indexOf(b.dayCode)
@@ -137,6 +180,8 @@ export default function ExploreDetailScreen() {
         type={alertModal.type}
         title={alertModal.title}
         message={alertModal.message}
+        buttonLabel={alertModal.ctaLabel}
+        onConfirm={alertModal.onCta}
         onDismiss={() => setAlertModal({ ...alertModal, visible: false })}
       />
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -195,15 +240,7 @@ export default function ExploreDetailScreen() {
             <Text style={styles.sectionTitle}>Sesiones incluidas</Text>
             <View style={styles.sessionsList}>
               {sessions.map((session) => (
-                <View key={session.id} style={styles.sessionCardView}>
-                  <Ionicons name={session.icon as any} size={20} color={WolfTheme.colors.primary} />
-                  <View style={styles.sessionInfo}>
-                    <Text style={styles.sessionName}>{session.name}</Text>
-                    <Text style={styles.sessionMeta}>
-                      {session.estimatedMinutes} min • {session.exercises.length} ejercicios
-                    </Text>
-                  </View>
-                </View>
+                <SessionAccordion key={session.id} session={session} />
               ))}
             </View>
           </View>
@@ -364,29 +401,6 @@ const styles = StyleSheet.create({
   },
   sessionsList: {
     gap: WolfTheme.spacing.md,
-  },
-  sessionCardView: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: WolfTheme.colors.surface,
-    borderRadius: WolfTheme.radius.card,
-    padding: WolfTheme.spacing.md,
-    gap: WolfTheme.spacing.md,
-    borderWidth: 1,
-    borderColor: WolfTheme.colors.border,
-  },
-  sessionInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  sessionName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: WolfTheme.colors.textPrimary,
-  },
-  sessionMeta: {
-    fontSize: 12,
-    color: WolfTheme.colors.textSecondary,
   },
   footer: {
     position: 'absolute',

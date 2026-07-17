@@ -6,7 +6,14 @@ export const QUERY_KEYS = {
 
   PROGRAMS: ['programs'] as const,
   PROGRAM: (id: string) => ['programs', id] as const,
+  PROGRAMS_PAGE: (search: string) => ['programs-page', search] as const,
   USER_PROGRAM: ['user-program'] as const,
+  USER_PROGRAMS: ['user-programs'] as const,
+
+  CHALLENGES: ['challenges'] as const,
+  CHALLENGE: (id: string) => ['challenges', id] as const,
+  CHALLENGES_PAGE: (search: string) => ['challenges-page', search] as const,
+  ACTIVE_CHALLENGES: ['active-challenges'] as const,
 
   SESSIONS: ['sessions'] as const,
   SESSION: (id: string) => ['sessions', id] as const,
@@ -19,6 +26,7 @@ export const QUERY_KEYS = {
   WORKOUTS: ['workouts'] as const,
   WORKOUT: (id: string) => ['workouts', id] as const,
   WORKOUT_HISTORY: ['workout-history'] as const,
+  SESSION_HISTORY: (sessionId: string) => ['session-history', sessionId] as const,
 
   CALENDAR: (month: string) => ['calendar', month] as const,
 

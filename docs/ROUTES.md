@@ -12,11 +12,24 @@
 │
 ├── (tabs)/              → Bottom Navigation (requiere auth)
 │   ├── training/
-│   │   ├── index        → Dashboard de entrenamiento
+│   │   ├── index        → Lista de programas activos, retos activos y calendario combinado (o estado vacío)
+│   │   ├── [id]         → Detalle de programa
+│   │   ├── manage-programs → Gestión de programas activos/desactivados
+│   │   ├── session/[id]/
+│   │   │   ├── index    → Pre-sesión ("Planificación de la sesión", solo lectura + ícono de editar + iniciar)
+│   │   │   ├── setup    → Wizard obligatorio de primera vez (descanso + objetivos por ejercicio)
+│   │   │   ├── execute  → Ejecución guiada (video + series, un ejercicio a la vez)
+│   │   │   ├── summary  → Resumen objetivo vs. realizado
+│   │   │   └── history  → Progreso histórico (gráfico + estados por ejecución)
+│   │   ├── exercise/[id] → Detalle/video de un ejercicio
 │   │   └── program/
 │   │       └── create   → Creación de programa (premium)
 │   ├── explore/
-│   │   └── index        → Catálogo de programas oficiales
+│   │   ├── index        → Carruseles "Programas" y "Retos" (máx 6 c/u + "Ver todo")
+│   │   ├── programs     → Todos los programas paginados, con buscador
+│   │   ├── challenges   → Todos los retos paginados, con buscador y filtro de duración
+│   │   ├── challenge/[id] → Detalle de reto (días, logro asociado, "Comenzar reto")
+│   │   └── [id]          → Detalle de programa oficial/personal
 │   ├── rankings/
 │   │   └── index        → Rankings por tipo y alcance
 │   └── profile/
@@ -28,7 +41,19 @@
 │       ├── settings     → Configuración (email, password)
 │       └── personalization → Temas y preferencias
 │
-└── user/[id]            → Perfil público de otro usuario
+├── user/[id]            → Perfil público de otro usuario
+│
+└── admin/                → Portal web de administración (carpeta real, solo web, requiere role='admin')
+    ├── login             → Login separado del móvil
+    ├── index             → Overview
+    ├── exercises/         → CRUD de ejercicios
+    ├── programs/          → CRUD de programas (draft/published/archived)
+    ├── challenges/        → CRUD de retos
+    ├── sessions/          → CRUD de sesiones + asociación a programas/retos
+    ├── achievements/       → CRUD de logros
+    ├── muscle-groups/      → CRUD de grupos musculares
+    ├── equipment/          → CRUD de equipamiento
+    └── users/              → Gestión de roles de usuario
 ```
 
 ---
@@ -49,9 +74,21 @@
 
 | Ruta | Archivo | Acceso | Descripción |
 |---|---|---|---|
-| `/(tabs)/training` | `src/app/(tabs)/training/index.tsx` | Todos | Dashboard semanal y programa activo |
+| `/(tabs)/training` | `src/app/(tabs)/training/index.tsx` | Todos | Lista de programas activos del usuario (0, 1 o hasta 3 según plan); estado vacío si no tiene ninguno |
+| `/(tabs)/training/[id]` | `src/app/(tabs)/training/[id].tsx` | Todos | Detalle de un programa; menú "⋯" con "Desactivar programa" y "Gestionar programas" |
+| `/(tabs)/training/manage-programs` | `src/app/(tabs)/training/manage-programs.tsx` | Todos | Lista de asignaciones activas y desactivadas, con toggle para (re)activar respetando el límite del plan |
+| `/(tabs)/training/session/[id]` | `src/app/(tabs)/training/session/[id]/index.tsx` | Todos | Pre-sesión: "Planificación de la sesión" de solo lectura (ícono de lápiz para editar) y botón "Iniciar sesión" |
+| `/(tabs)/training/session/[id]/setup` | `src/app/(tabs)/training/session/[id]/setup.tsx` | Todos | Wizard obligatorio de primera vez: descanso entre series + series/reps/peso por ejercicio |
+| `/(tabs)/training/session/[id]/execute` | `src/app/(tabs)/training/session/[id]/execute.tsx` | Todos | Ejecución guiada: un ejercicio por pantalla (video arriba, series abajo), swipe entre ejercicios |
+| `/(tabs)/training/session/[id]/summary` | `src/app/(tabs)/training/session/[id]/summary.tsx` | Todos | Resumen post-entrenamiento: objetivo vs. realizado por serie |
+| `/(tabs)/training/session/[id]/history` | `src/app/(tabs)/training/session/[id]/history.tsx` | Todos | Progreso histórico: gráfico de barras por métrica + lista de ejecuciones con estado |
+| `/(tabs)/training/exercise/[id]` | `src/app/(tabs)/training/exercise/[id].tsx` | Todos | Detalle y video de un ejercicio |
 | `/(tabs)/training/program/create` | `src/app/(tabs)/training/program/create.tsx` | Premium | Creación de programa personalizado |
-| `/(tabs)/explore` | `src/app/(tabs)/explore/index.tsx` | Todos | Catálogo de programas oficiales |
+| `/(tabs)/explore` | `src/app/(tabs)/explore/index.tsx` | Todos | Carruseles "Programas" y "Retos" (máx. 6 c/u) con botón "Ver todo" |
+| `/(tabs)/explore/programs` | `src/app/(tabs)/explore/programs.tsx` | Todos | Todos los programas oficiales, paginados de a 10, con buscador |
+| `/(tabs)/explore/challenges` | `src/app/(tabs)/explore/challenges.tsx` | Todos | Todos los retos, paginados de a 10, con buscador y filtro de duración |
+| `/(tabs)/explore/[id]` | `src/app/(tabs)/explore/[id].tsx` | Todos | Detalle de programa; asignar respeta el límite del plan |
+| `/(tabs)/explore/challenge/[id]` | `src/app/(tabs)/explore/challenge/[id].tsx` | Todos | Detalle de reto: días, logro asociado, "Comenzar reto" (respeta el límite del plan) |
 | `/(tabs)/rankings` | `src/app/(tabs)/rankings/index.tsx` | Todos (ver); Premium (participar global) | Rankings por tipo y scope |
 | `/(tabs)/profile` | `src/app/(tabs)/profile/index.tsx` | Todos | Perfil, stats, menú |
 | `/(tabs)/profile/edit` | `src/app/(tabs)/profile/edit.tsx` | Todos | Editar nombre, tag, bio, ubicación |
@@ -111,3 +148,4 @@ src/app/(tabs)/profile/_layout.tsx  (Stack navigator)
 5. La ruta `/training/program/create` solo es accesible para usuarios premium; mostrar paywall para free users.
 6. Después de login exitoso, redirigir a `/` (que redirige a `/(tabs)/training`).
 7. Después de registro exitoso, mostrar mensaje de éxito en la misma pantalla antes de redirigir.
+8. `/admin/*` es un árbol completamente aparte: carpeta real (no route group), solo accesible en `Platform.OS==='web'`, con su propio login (`/admin/login`) y guard por `role='admin'` (`src/app/admin/_layout.tsx`) — no comparte sesión de navegación con `(auth)`/`(tabs)` más allá del mismo `useAuthStore`/sesión de Supabase.

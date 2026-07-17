@@ -18,5 +18,5 @@ export async function getCalendarEvents(
     .lte('scheduled_date', to)
     .order('scheduled_date')
   if (error) throw error
-  return data as CalendarEventWithSession[]
+  return data as unknown as CalendarEventWithSession[]
 }

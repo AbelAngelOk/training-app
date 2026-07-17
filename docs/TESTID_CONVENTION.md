@@ -116,11 +116,19 @@ Los `testID` permiten identificar componentes de forma estable para:
 
 | testID | Elemento |
 |---|---|
-| `explore-search-input` | Input de búsqueda |
-| `explore-program-card` | Card de programa |
+| `explore-programs-view-all-button` | Botón "Ver todo" del carrusel de programas |
+| `explore-challenges-view-all-button` | Botón "Ver todo" del carrusel de retos |
+| `explore-program-card` | Card de programa (carrusel y listados) |
 | `explore-program-card-name` | Nombre del programa en la card |
-| `explore-program-card-assign-button` | Botón "Usar programa" |
-| `explore-empty-state` | Estado vacío |
+| `explore-challenge-card` | Card de reto (carrusel y listados) |
+| `explore-challenge-card-name` | Nombre del reto en la card |
+
+#### /explore/programs y /explore/challenges ("ver todo")
+
+| testID | Elemento |
+|---|---|
+| `explore-programs-empty-state` | Estado vacío de la lista paginada de programas |
+| `explore-challenges-empty-state` | Estado vacío de la lista paginada de retos |
 
 ---
 
