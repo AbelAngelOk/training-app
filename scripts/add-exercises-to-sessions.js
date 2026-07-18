@@ -4,13 +4,19 @@
  * Expande las sesiones con ejercicios complementarios manteniendo la estructura
  */
 
+require('dotenv').config()
+
 async function main() {
   const { createClient } = await import('@supabase/supabase-js')
 
-  const supabase = createClient(
-    'https://ahmgdqufbxsteklkbwer.supabase.co',
-    'REDACTED_ROTATE_THIS_KEY'
-  )
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing Supabase credentials (EXPO_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)')
+    process.exit(1)
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey)
 
   console.log('🌱 Agregando más ejercicios a sesiones existentes...\n')
 
