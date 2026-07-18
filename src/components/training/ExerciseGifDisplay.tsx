@@ -1,74 +1,59 @@
-import { useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useState } from 'react'
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { useVideoPlayer, VideoView } from 'expo-video'
 
 import { WolfTheme } from '@/constants/colors'
-import { useExerciseVideo } from '@/hooks/use-exercise-video'
+import { getExerciseGifUrl } from '@/api/exercise-gif'
 import type { ExerciseRow } from '@/types/database'
 
-interface ExerciseVideoDisplayProps {
+interface ExerciseGifDisplayProps {
   exercise: ExerciseRow
   showInstructions?: boolean
 }
 
 /**
- * Display exercise video from ExerciseDB API with graceful fallback to instructions
- * Videos are fetched on-demand when this component mounts
- * If video fetch fails, displays instructions and tips instead
+ * Display exercise GIF from the fitgifs API with graceful fallback to
+ * instructions. The GIF URL is a plain static image (no data to fetch/cache
+ * client-side), so loading/error state is handled directly off RN's own
+ * Image lifecycle events rather than a data-fetching hook.
  */
-export function ExerciseVideoDisplay({
-  exercise,
-  showInstructions = true,
-}: ExerciseVideoDisplayProps) {
-  const { data: videoData, isLoading, error } = useExerciseVideo(exercise.external_id)
-  const [showingInstructions, setShowingInstructions] = useState(!videoData?.videoUrl)
-  const videoPlayer = useVideoPlayer(videoData?.videoUrl ?? null, (player) => {
-    player.loop = false
-  })
+export function ExerciseGifDisplay({ exercise, showInstructions = true }: ExerciseGifDisplayProps) {
+  const gifUrl = getExerciseGifUrl(exercise.fitgifs_slug)
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>(gifUrl ? 'loading' : 'error')
 
-  useEffect(() => {
-    if (!videoData?.videoUrl) {
-      setShowingInstructions(true)
-    }
-  }, [videoData])
-
-  const hasVideo = !isLoading && videoData?.videoUrl
-  const shouldShowFallback = !hasVideo && showInstructions
+  const hasGif = status === 'loaded'
+  const shouldShowFallback = status !== 'loaded' && showInstructions
 
   return (
     <View style={styles.container}>
-      {/* Video or Placeholder */}
-      {isLoading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={WolfTheme.colors.primary} />
-          <Text style={styles.loadingText}>Cargando video...</Text>
-        </View>
-      )}
-
-      {hasVideo && !showingInstructions && (
-        <View style={styles.videoContainer}>
-          <VideoView
-            style={styles.video}
-            player={videoPlayer}
-            allowsFullscreen
-            nativeControls
+      {gifUrl && (status === 'loading' || status === 'loaded') && (
+        <View style={styles.gifContainer}>
+          <Image
+            source={{ uri: gifUrl }}
+            style={[styles.gif, { opacity: status === 'loaded' ? 1 : 0 }]}
+            resizeMode="contain"
+            onLoad={() => setStatus('loaded')}
+            onError={() => setStatus('error')}
           />
+          {status === 'loading' && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={WolfTheme.colors.primary} />
+              <Text style={styles.loadingText}>Cargando GIF...</Text>
+            </View>
+          )}
         </View>
       )}
 
-      {/* Error or Fallback Message */}
-      {error && (
+      {status === 'error' && gifUrl && (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={40} color="#F97316" />
-          <Text style={styles.errorTitle}>No se pudo cargar el video</Text>
+          <Text style={styles.errorTitle}>No se pudo cargar el GIF</Text>
           <Text style={styles.errorMessage}>
             Mostrando instrucciones en su lugar. Asegurate de tener conexión a internet.
           </Text>
         </View>
       )}
 
-      {/* Instructions and Tips Fallback */}
       {shouldShowFallback && (
         <ScrollView
           contentContainerStyle={styles.instructionsContent}
@@ -110,11 +95,10 @@ export function ExerciseVideoDisplay({
         </ScrollView>
       )}
 
-      {/* Video Available Indicator */}
-      {hasVideo && (
+      {hasGif && (
         <View style={styles.indicator}>
           <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
-          <Text style={styles.indicatorText}>Video disponible</Text>
+          <Text style={styles.indicatorText}>GIF disponible</Text>
         </View>
       )}
     </View>
@@ -126,8 +110,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: WolfTheme.colors.background,
   },
-  loadingContainer: {
+  gifContainer: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000',
+  },
+  gif: {
+    width: '100%',
+    height: '100%',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
     gap: WolfTheme.spacing.md,
@@ -135,16 +133,6 @@ const styles = StyleSheet.create({
   loadingText: {
     color: WolfTheme.colors.textSecondary,
     fontSize: 16,
-  },
-  videoContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000',
-  },
-  video: {
-    width: '100%',
-    height: '100%',
   },
   errorContainer: {
     flex: 1,

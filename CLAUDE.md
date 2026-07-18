@@ -210,35 +210,52 @@ Generar siempre soluciones completas y listas para producción.
 
 ### Overview
 
-Ejercicios importados desde ExerciseDB con videos bajo-demanda:
+ExerciseDB se usa **solo** para importar el catálogo de ejercicios (una vez). No tiene nada que ver con la visualización (eso lo maneja fitgifs, ver sección siguiente).
 
 - **Datos**: Nombre, instrucciones, tips, imagen, músculo, equipo almacenados en `exercises` table
-- **Videos**: Obtenidos en vivo desde ExerciseDB usando `external_id` (referencia a exerciseId de la API)
-- **Fallback**: Si la API falla, se muestran instrucciones + tips en texto
+- **`external_id`**: Referencia a exerciseId de la API, usada solo para deduplicar reimportaciones de catálogo
 
 ### Setup
 
 1. Obtener API key en: https://rapidapi.com/justin-WFnsXH_haHLw/api/exercisedb
 2. Agregar a `.env`: `RAPID_API_KEY=your_key`
 3. Ejecutar: `npm run seed:exercises`
-4. Agregar a `app.json`: `EXPO_PUBLIC_RAPID_API_KEY` en `expo.extra`
 
 ### Key Files
 
-- `docs/EXERCISE_VIDEO_ARCHITECTURE.md` — Arquitectura completa
 - `docs/EXERCISEDB_SETUP.md` — Setup detallado
-- `src/api/exercise-video.ts` — API calls a ExerciseDB
-- `src/hooks/use-exercise-video.ts` — React Query hook
-- `src/components/training/ExerciseVideoDisplay.tsx` — Componente UI
 - `scripts/seed-exercises-from-api.js` — Script de importación
 - `supabase/migrations/20260615000003_*.sql` — Cambios al esquema
+
+---
+
+## fitgifs GIF Integration
+
+### Overview
+
+Ejercicios muestran un GIF bajo-demanda desde la API `fitgifs` (`https://api-training-app.onrender.com`), propia, sin autenticación, sin límite de requests. Reemplaza el sistema anterior de video vía ExerciseDB.
+
+- **Sync**: `scripts/sync-fitgifs.js` trae el catálogo completo de fitgifs una vez y matchea contra los ejercicios locales por nombre (en/es), guardando el `slug` en `exercises.fitgifs_slug`
+- **Runtime**: `/gif/{slug}` es una URL de imagen estática — se arma directo, sin round-trip, y se pasa a un `<Image>` nativo
+- **Fallback**: Si no hay `fitgifs_slug` o el GIF falla al cargar, se muestran instrucciones + tips en texto
+
+### Setup
+
+Sin requisitos (fitgifs no requiere key). Ejecutar `npm run sync:fitgifs` después de tener ejercicios cargados (via `seed`/`seed:exercises`).
+
+### Key Files
+
+- `docs/EXERCISE_GIF_ARCHITECTURE.md` — Arquitectura completa
+- `src/api/exercise-gif.ts` — Construye la URL del GIF (sin llamada de red)
+- `src/components/training/ExerciseGifDisplay.tsx` — Componente UI
+- `scripts/sync-fitgifs.js` — Script de sincronización/matching
+- `supabase/migrations/20260718000018_*.sql` — Cambios al esquema
 
 ### Database Schema
 
 `exercises` table cambios:
-- ✅ AGREGADO: `external_id` (referencia a ExerciseDB)
-- ✅ AGREGADO: `tips` (cues/consejos)
-- ❌ REMOVIDO: `video_url` (obtenido on-demand)
+- ✅ AGREGADO: `fitgifs_slug` (referencia a fitgifs API, nullable)
+- ❌ REMOVIDO: `video_url` (nunca se usó — visuales siempre bajo-demanda)
 
 ---
 
@@ -251,6 +268,7 @@ npm run seed                  # Datos base (muscle_groups, equipment, exercises,
 npm run seed:programs         # Programas y sesiones (3 programas + 10 sesiones)
 npm run seed:exercises        # ExerciseDB (~1500+ ejercicios, requiere RAPID_API_KEY)
 npm run seed:add-exercises    # Ejercicios adicionales a sesiones (23 ejercicios)
+npm run sync:fitgifs          # Matchea exercises.fitgifs_slug contra fitgifs API (sin key)
 ```
 
 ### Recommended Order
@@ -260,6 +278,7 @@ npm run seed              # Requerido primero
 npm run seed:programs     # Depende de seed
 npm run seed:exercises    # Opcional, requiere API key
 npm run seed:add-exercises # Opcional, depende de seed:programs
+npm run sync:fitgifs      # Opcional, reejecutable, después de tener ejercicios cargados
 ```
 
 ### Database State
@@ -268,5 +287,6 @@ npm run seed:add-exercises # Opcional, depende de seed:programs
 - **After seed:programs**: 3 programas, 10 sesiones, 55 ejercicios asignados
 - **After seed:exercises**: +1523 ejercicios de ExerciseDB
 - **After seed:add-exercises**: +23 ejercicios complementarios a sesiones
+- **After sync:fitgifs**: `fitgifs_slug` poblado en ~50-70% de los ejercicios (2 catálogos curados por separado, no se espera 100%)
 
 Ver `docs/SEEDING_GUIDE.md` para detalles completos.

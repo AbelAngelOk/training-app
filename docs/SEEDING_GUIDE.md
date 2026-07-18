@@ -4,11 +4,12 @@ Guía para ejecutar los scripts de seed y agregar datos a la base de datos.
 
 ## Overview
 
-La aplicación usa 4 scripts de seed para poblar la base de datos con:
+La aplicación usa 4 scripts de seed para poblar la base de datos, más un 5to script de sincronización (no es seed, no crea datos nuevos):
 1. **Grupos musculares, equipos, ejercicios** — datos base
 2. **Programas de entrenamiento y sesiones** — estructura
 3. **Ejercicios de ExerciseDB API** — ampliación de catálogo
 4. **Ejercicios adicionales a sesiones** — enriquecimiento
+5. **Sincronización con fitgifs API** — enriquecimiento (GIFs para ejercicios existentes)
 
 ## Scripts
 
@@ -174,6 +175,51 @@ npm run seed:add-exercises
 
 ---
 
+### 5. `npm run sync:fitgifs` — Sincronización con fitgifs
+
+Empareja los ~1567 ejercicios locales con el catálogo de fitgifs API (~1234 ejercicios, ~1213 con GIF) por nombre (inglés o español), y guarda el `slug` correspondiente en `exercises.fitgifs_slug`. No es un seed — no crea filas nuevas, solo actualiza `exercises` existentes.
+
+**Requisitos:** ninguno (fitgifs no requiere autenticación). Solo credenciales de Supabase en `.env`.
+
+**Ejecutar:**
+```bash
+npm run sync:fitgifs
+```
+
+**Output:**
+```
+🌱 Sincronizando exercises.fitgifs_slug con fitgifs API...
+
+⏳ Contactando fitgifs API (el servicio gratuito de Render puede tardar 30-60s en despertar)...
+✅ Servicio despierto. Descargando catálogo completo...
+📦 Catálogo fitgifs: 1234 ejercicios (1213 con GIF)
+
+  ✅ "Peso muerto" → "deadlift" (exact)
+  🔗 "burpee" → "burpees" (containment)
+  ⏭️  "Elevaciones laterales" — sin match (mejor score: 0.62)
+  ...
+
+========================================
+Fitgifs sync completo!
+Total procesado: 1567
+  Alta confianza (exact match): 700
+  Media confianza (containment): 250
+  Media confianza (fuzzy >= 0.75): 130
+  Sin match: 487
+  Errores: 0
+========================================
+
+📄 Reporte completo (media confianza + sin match) en: scripts/fitgifs-sync-report.json
+
+Total exercises con fitgifs_slug en la base: 1080
+```
+
+**Tiempo:** ~10-30 segundos (una sola llamada externa al catálogo completo, el resto son updates locales). Reintentable: los ejercicios ya vinculados se saltean automáticamente en la próxima corrida.
+
+Los casos de confianza media o sin match quedan en `scripts/fitgifs-sync-report.json` para revisión manual — se pueden corregir a mano desde el campo "Slug de fitgifs" en `/admin/exercises/{id}`.
+
+---
+
 ## Sequence of Execution
 
 Orden recomendado para primera vez:
@@ -190,6 +236,9 @@ npm run seed:exercises
 
 # 4. Ejercicios adicionales (opcional, después de #2)
 npm run seed:add-exercises
+
+# 5. Sincronizar GIFs (opcional, reejecutable, después de tener ejercicios cargados)
+npm run sync:fitgifs
 ```
 
 ## Database State After Each Script
@@ -222,6 +271,12 @@ exercises:         44 + 1523 (ExerciseDB) = 1567 total
 ```
 [All from above, plus:]
 session_exercises:  55 + 23 = 78 total
+```
+
+### After `npm run sync:fitgifs`
+```
+[No new rows — exercises.fitgifs_slug populated on existing rows]
+fitgifs_slug populated: ~50-70% of exercises (2 independently-curated catalogs, not 100% expected)
 ```
 
 ## Troubleshooting
@@ -281,6 +336,11 @@ Para producción:
    npm run seed:add-exercises
    ```
 
+5. **Optional - fitgifs sync** (no requiere key, reejecutable):
+   ```bash
+   npm run sync:fitgifs
+   ```
+
 ## Modifying Seeds
 
 Para agregar o modificar ejercicios en una sesión, editar:
@@ -320,6 +380,7 @@ npm run seed:add-exercises
 - `seed:programs` — rápido, ~50 registros
 - `seed:exercises` — lento, 1500+ llamadas API (2-3 min)
 - `seed:add-exercises` — muy rápido, ~23 registros
+- `sync:fitgifs` — rápido, una sola llamada externa (catálogo completo) + updates locales (~10-30s)
 
 Se pueden ejecutar en paralelo `seed` + `seed:programs` en una misma línea.
 `seed:exercises` debe ejecutarse por separado por el volumen de APIs.

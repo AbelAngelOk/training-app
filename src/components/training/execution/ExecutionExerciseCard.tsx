@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 
 import { WolfTheme } from '@/constants/colors'
-import { ExerciseVideoDisplay } from '@/components/training/ExerciseVideoDisplay'
+import { ExerciseGifDisplay } from '@/components/training/ExerciseGifDisplay'
 import { SeriesCard } from '@/components/training/exercise/SeriesCard'
 import { RestCountdown } from '@/components/training/execution/RestCountdown'
 import type { ExecutionExercise } from '@/types/training'
@@ -20,7 +20,7 @@ interface ExecutionExerciseCardProps {
   index: number
   total: number
   width: number
-  /** Only the visible page mounts the video (heavy) and shows the rest timer */
+  /** Only the visible page mounts the GIF (heavy) and shows the rest timer */
   isActive: boolean
   restEndsAt: number | null
   onWeightChange: (setIndex: number, value: string) => void
@@ -53,10 +53,10 @@ export function ExecutionExerciseCard({
 
   return (
     <View style={[styles.page, { width }]}>
-      {/* Top half: video */}
+      {/* Top half: gif */}
       <View style={styles.videoHalf}>
         {isActive ? (
-          <ExerciseVideoDisplay exercise={exercise.exercise} showInstructions />
+          <ExerciseGifDisplay exercise={exercise.exercise} showInstructions />
         ) : (
           <View style={styles.videoPlaceholder}>
             <Ionicons name="barbell-outline" size={48} color={WolfTheme.colors.textSecondary} />

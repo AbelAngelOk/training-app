@@ -323,6 +323,7 @@ interface TableDefinitions {
           image_url: string | null
           tips: string | null
           external_id: string | null
+          fitgifs_slug: string | null
           muscle_group_id: string
           equipment_id: string | null
           difficulty: ExerciseDifficulty
@@ -338,6 +339,7 @@ interface TableDefinitions {
           image_url?: string | null
           tips?: string | null
           external_id?: string | null
+          fitgifs_slug?: string | null
           muscle_group_id: string
           equipment_id?: string | null
           difficulty?: ExerciseDifficulty
@@ -352,6 +354,7 @@ interface TableDefinitions {
           image_url?: string | null
           tips?: string | null
           external_id?: string | null
+          fitgifs_slug?: string | null
           muscle_group_id?: string
           equipment_id?: string | null
           difficulty?: ExerciseDifficulty

@@ -177,12 +177,13 @@ CHECK `program_day_schedule_xor`: exactamente uno de `weekday`/`day_number` est�
 | instructions | text | Nullable |
 | image_url | text | Nullable |
 | tips | text | Nullable |
-| external_id | text | Unique. ID from ExerciseDB API. NULL = custom/local exercise |
+| external_id | text | Unique. ID from ExerciseDB API (solo para importar catálogo — `seed:exercises`). NULL = custom/local exercise |
+| fitgifs_slug | text | Nullable. Slug de fitgifs API (`/gif/{slug}`). NULL = sin GIF asociado |
 | muscle_group_id | uuid FK → muscle_groups | FK sin `ON DELETE` (NO ACTION) — no se puede borrar un grupo muscular en uso |
 | equipment_id | uuid FK → equipment | Nullable |
 | difficulty | exercise_difficulty | |
 | active | boolean | Soft delete (dashboard admin). `session_exercises.exercise_id` es `ON DELETE RESTRICT`, así que borrar un ejercicio en uso falla — el dashboard ofrece desactivar en su lugar |
-| **NOTE** | Videos fetched on-demand | See `src/api/exercise-video.ts` — videoUrl NOT stored |
+| **NOTE** | GIFs fetched on-demand | Ver `src/api/exercise-gif.ts` / `docs/EXERCISE_GIF_ARCHITECTURE.md` — el GIF no se guarda, se arma la URL en runtime a partir de `fitgifs_slug` |
 
 #### Ejecución de entrenamientos
 
@@ -315,6 +316,7 @@ CHECK `program_day_schedule_xor`: exactamente uno de `weekday`/`day_number` est�
 | `20260714000015_fix_role_escalation_trigger.sql` | Corrige `prevent_role_self_escalation`: la versión original bloqueaba incluso a `service_role`/migraciones (sin sesión JWT, `auth.uid()` es NULL) — ahora solo bloquea cuando hay una sesión autenticada no-admin intentando el cambio | ✅ Aplicada |
 | `20260714000016_admin_select_user_programs.sql` | Policy adicional (aditiva) `user_programs: admin select` — sin ella, `getProgramAssignmentCount()` (chequeo previo a eliminar un programa/reto oficial, ya que `workout_program_id` es `ON DELETE CASCADE`) siempre devolvía 0 para asignaciones de otros usuarios, dejando el borrado duro sin protección real | ✅ Aplicada |
 | `20260714000017_admin_select_draft_challenges.sql` | Corrige `"workout_programs: select challenges"`: a diferencia de `"select official"` (sin filtro de status), esta policy solo permitía ver retos `status='published'` — ni siquiera un admin podía ver/editar retos en borrador o archivados. Ahora: `status='published' OR is_admin()` | ✅ Aplicada |
+| `20260718000018_add_fitgifs_slug_to_exercises.sql` | Agrega `fitgifs_slug` a exercises (referencia a fitgifs API para GIFs) — reemplaza el sistema de video de ExerciseDB | ✅ Aplicada |
 
 ### Función RPC: duplicate_program_deep
 

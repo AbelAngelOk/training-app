@@ -35,6 +35,7 @@ export default function EditExerciseScreen() {
             tips: exercise.tips ?? '',
             image_url: exercise.image_url ?? '',
             external_id: exercise.external_id ?? '',
+            fitgifs_slug: exercise.fitgifs_slug ?? '',
             muscle_group_id: exercise.muscle_group_id,
             equipment_id: exercise.equipment_id ?? undefined,
             difficulty: exercise.difficulty,

@@ -3,6 +3,8 @@
 **Date**: 2026-07-03  
 **Status**: ✅ Complete and Production-Ready
 
+> **⚠️ Superseded (2026-07-18)**: The video display system described below (`exercise-video.ts`, `use-exercise-video.ts`, `ExerciseVideoDisplay.tsx`, `docs/EXERCISEDB_QUICK_START.md`) was replaced by a GIF-based system using the fitgifs API — see `docs/EXERCISE_GIF_ARCHITECTURE.md`. ExerciseDB is still used for the one-time exercise catalog import, unrelated to display. Kept below as a historical record of this session's work.
+
 ---
 
 ## Overview

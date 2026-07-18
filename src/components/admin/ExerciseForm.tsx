@@ -25,6 +25,7 @@ const schema = z.object({
   tips: z.string().optional(),
   image_url: z.string().optional(),
   external_id: z.string().optional(),
+  fitgifs_slug: z.string().optional(),
   muscle_group_id: z.string().min(1, 'Elegí un grupo muscular'),
   equipment_id: z.string().optional(),
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
@@ -65,6 +66,7 @@ export function ExerciseForm({ defaultValues, submitLabel, loading, onSubmit }: 
         tips: values.tips || null,
         image_url: values.image_url || null,
         external_id: values.external_id || null,
+        fitgifs_slug: values.fitgifs_slug || null,
         muscle_group_id: values.muscle_group_id,
         equipment_id: values.equipment_id || null,
         difficulty: values.difficulty,
@@ -194,6 +196,18 @@ export function ExerciseForm({ defaultValues, submitLabel, loading, onSubmit }: 
         render={({ field: { onChange, value } }) => (
           <FormField
             label="ID de ExerciseDB (opcional)"
+            value={value}
+            onChangeText={onChange}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="fitgifs_slug"
+        render={({ field: { onChange, value } }) => (
+          <FormField
+            label="Slug de fitgifs (opcional)"
             value={value}
             onChangeText={onChange}
           />

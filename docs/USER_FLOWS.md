@@ -149,7 +149,7 @@
   └── Hidrata active-workout-store (executionId, startedAt, mapa de executions)
       │
 [/training/session/[id]/execute] — Ejecución guiada
-  ├── Un ejercicio por pantalla: video arriba (ExerciseVideoDisplay),
+  ├── Un ejercicio por pantalla: GIF arriba (ExerciseGifDisplay),
   │   series abajo (SeriesCard); swipe horizontal para saltar ejercicios
   ├── Al marcar una serie: logSet(payload) → fila en workout_sets
   │     ├── Editar una serie ya registrada → updateSet() (debounced)

@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { WolfTheme } from '@/constants/colors'
 import { supabase } from '@/lib/supabase'
-import { ExerciseVideoDisplay } from '@/components/training/ExerciseVideoDisplay'
+import { ExerciseGifDisplay } from '@/components/training/ExerciseGifDisplay'
 import type { ExerciseRow } from '@/types/database'
 
 async function getExerciseByName(name: string): Promise<ExerciseRow | null> {
@@ -77,8 +77,8 @@ export default function ExerciseDetailScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Video/Instructions Display */}
-      <ExerciseVideoDisplay exercise={exercise} showInstructions={true} />
+      {/* GIF/Instructions Display */}
+      <ExerciseGifDisplay exercise={exercise} showInstructions={true} />
     </SafeAreaView>
   )
 }
