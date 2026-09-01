@@ -7,27 +7,29 @@ import { z } from 'zod'
 import { WolfTheme } from '@/constants/colors'
 import { useMuscleGroups, useEquipment } from '@/hooks/use-exercises'
 import { FormField } from '@/components/admin/FormField'
+import { MultiSelectField } from '@/components/admin/MultiSelectField'
 import { Button } from '@/components/ui/Button'
 import { AlertModal } from '@/components/ui/AlertModal'
+import { DIFFICULTY_LABEL } from '@/lib/i18n'
 import type { ExercisePayload } from '@/api/exercises'
 import type { ExerciseDifficulty } from '@/types/database'
 
-const DIFFICULTIES: { value: ExerciseDifficulty; label: string }[] = [
-  { value: 'beginner', label: 'Principiante' },
-  { value: 'intermediate', label: 'Intermedio' },
-  { value: 'advanced', label: 'Avanzado' },
-]
+const DIFFICULTIES: ExerciseDifficulty[] = ['beginner', 'intermediate', 'advanced']
 
 const schema = z.object({
-  name: z.string().min(2, 'Requerido'),
-  description: z.string().optional(),
-  instructions: z.string().optional(),
-  tips: z.string().optional(),
+  name_es: z.string().min(2, 'Requerido'),
+  name_en: z.string().min(2, 'Requerido'),
+  description_es: z.string().optional(),
+  description_en: z.string().optional(),
+  instructions_es: z.string().optional(),
+  instructions_en: z.string().optional(),
+  tips_es: z.string().optional(),
+  tips_en: z.string().optional(),
   image_url: z.string().optional(),
   external_id: z.string().optional(),
   fitgifs_slug: z.string().optional(),
-  muscle_group_id: z.string().min(1, 'Elegí un grupo muscular'),
-  equipment_id: z.string().optional(),
+  muscle_group_ids: z.array(z.string()).min(1, 'Elegí al menos un grupo muscular'),
+  equipment_ids: z.array(z.string()).optional(),
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
 })
 
@@ -53,6 +55,8 @@ export function ExerciseForm({ defaultValues, submitLabel, loading, onSubmit }: 
     resolver: zodResolver(schema),
     defaultValues: {
       difficulty: 'beginner',
+      muscle_group_ids: [],
+      equipment_ids: [],
       ...defaultValues,
     },
   })
@@ -60,15 +64,19 @@ export function ExerciseForm({ defaultValues, submitLabel, loading, onSubmit }: 
   const submit = async (values: FormValues) => {
     try {
       await onSubmit({
-        name: values.name,
-        description: values.description || null,
-        instructions: values.instructions || null,
-        tips: values.tips || null,
+        name_es: values.name_es,
+        name_en: values.name_en,
+        description_es: values.description_es || null,
+        description_en: values.description_en || null,
+        instructions_es: values.instructions_es || null,
+        instructions_en: values.instructions_en || null,
+        tips_es: values.tips_es || null,
+        tips_en: values.tips_en || null,
         image_url: values.image_url || null,
         external_id: values.external_id || null,
         fitgifs_slug: values.fitgifs_slug || null,
-        muscle_group_id: values.muscle_group_id,
-        equipment_id: values.equipment_id || null,
+        muscle_group_ids: values.muscle_group_ids,
+        equipment_ids: values.equipment_ids ?? [],
         difficulty: values.difficulty,
       })
     } catch {
@@ -80,58 +88,56 @@ export function ExerciseForm({ defaultValues, submitLabel, loading, onSubmit }: 
     <ScrollView contentContainerStyle={styles.container}>
       <Controller
         control={control}
-        name="name"
+        name="name_es"
         render={({ field: { onChange, value } }) => (
-          <FormField label="Nombre *" value={value} onChangeText={onChange} error={errors.name?.message} />
+          <FormField
+            label="Nombre (Español) *"
+            value={value}
+            onChangeText={onChange}
+            error={errors.name_es?.message}
+          />
         )}
       />
 
       <Controller
         control={control}
-        name="muscle_group_id"
+        name="name_en"
         render={({ field: { onChange, value } }) => (
-          <FormField label="Grupo muscular *" error={errors.muscle_group_id?.message}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {(muscleGroups ?? []).map((mg) => (
-                <TouchableOpacity
-                  key={mg.id}
-                  style={[styles.chip, value === mg.id && styles.chipActive]}
-                  onPress={() => onChange(mg.id)}
-                >
-                  <Text style={[styles.chipText, value === mg.id && styles.chipTextActive]}>
-                    {mg.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+          <FormField
+            label="Nombre (English) *"
+            value={value}
+            onChangeText={onChange}
+            error={errors.name_en?.message}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="muscle_group_ids"
+        render={({ field: { onChange, value } }) => (
+          <FormField label="Grupo muscular *" error={errors.muscle_group_ids?.message}>
+            <MultiSelectField
+              options={(muscleGroups ?? []).map((mg) => ({ id: mg.id, label: mg.name_es }))}
+              selectedIds={value}
+              onChange={onChange}
+              placeholder="Grupo muscular"
+            />
           </FormField>
         )}
       />
 
       <Controller
         control={control}
-        name="equipment_id"
+        name="equipment_ids"
         render={({ field: { onChange, value } }) => (
           <FormField label="Equipo">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <TouchableOpacity
-                style={[styles.chip, !value && styles.chipActive]}
-                onPress={() => onChange(undefined)}
-              >
-                <Text style={[styles.chipText, !value && styles.chipTextActive]}>Ninguno</Text>
-              </TouchableOpacity>
-              {(equipmentList ?? []).map((eq) => (
-                <TouchableOpacity
-                  key={eq.id}
-                  style={[styles.chip, value === eq.id && styles.chipActive]}
-                  onPress={() => onChange(eq.id)}
-                >
-                  <Text style={[styles.chipText, value === eq.id && styles.chipTextActive]}>
-                    {eq.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <MultiSelectField
+              options={(equipmentList ?? []).map((eq) => ({ id: eq.id, label: eq.name_es }))}
+              selectedIds={value ?? []}
+              onChange={onChange}
+              placeholder="Equipo"
+            />
           </FormField>
         )}
       />
@@ -144,12 +150,12 @@ export function ExerciseForm({ defaultValues, submitLabel, loading, onSubmit }: 
             <View style={styles.chipsStatic}>
               {DIFFICULTIES.map((d) => (
                 <TouchableOpacity
-                  key={d.value}
-                  style={[styles.chip, value === d.value && styles.chipActive]}
-                  onPress={() => onChange(d.value)}
+                  key={d}
+                  style={[styles.chip, value === d && styles.chipActive]}
+                  onPress={() => onChange(d)}
                 >
-                  <Text style={[styles.chipText, value === d.value && styles.chipTextActive]}>
-                    {d.label}
+                  <Text style={[styles.chipText, value === d && styles.chipTextActive]}>
+                    {DIFFICULTY_LABEL.es[d]}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -160,25 +166,73 @@ export function ExerciseForm({ defaultValues, submitLabel, loading, onSubmit }: 
 
       <Controller
         control={control}
-        name="description"
+        name="description_es"
         render={({ field: { onChange, value } }) => (
-          <FormField label="Descripción" value={value} onChangeText={onChange} multiline numberOfLines={2} />
+          <FormField
+            label="Descripción (Español)"
+            value={value}
+            onChangeText={onChange}
+            multiline
+            numberOfLines={2}
+          />
         )}
       />
 
       <Controller
         control={control}
-        name="instructions"
+        name="description_en"
         render={({ field: { onChange, value } }) => (
-          <FormField label="Instrucciones" value={value} onChangeText={onChange} multiline numberOfLines={4} />
+          <FormField
+            label="Descripción (English)"
+            value={value}
+            onChangeText={onChange}
+            multiline
+            numberOfLines={2}
+          />
         )}
       />
 
       <Controller
         control={control}
-        name="tips"
+        name="instructions_es"
         render={({ field: { onChange, value } }) => (
-          <FormField label="Tips" value={value} onChangeText={onChange} multiline numberOfLines={2} />
+          <FormField
+            label="Instrucciones (Español)"
+            value={value}
+            onChangeText={onChange}
+            multiline
+            numberOfLines={4}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="instructions_en"
+        render={({ field: { onChange, value } }) => (
+          <FormField
+            label="Instrucciones (English)"
+            value={value}
+            onChangeText={onChange}
+            multiline
+            numberOfLines={4}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="tips_es"
+        render={({ field: { onChange, value } }) => (
+          <FormField label="Tips (Español)" value={value} onChangeText={onChange} multiline numberOfLines={2} />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="tips_en"
+        render={({ field: { onChange, value } }) => (
+          <FormField label="Tips (English)" value={value} onChangeText={onChange} multiline numberOfLines={2} />
         )}
       />
 

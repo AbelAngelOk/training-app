@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons'
 
 import { WolfTheme } from '@/constants/colors'
 import { getExerciseGifUrl } from '@/api/exercise-gif'
+import { useAppLanguage } from '@/hooks/use-app-language'
+import { getLocalizedText } from '@/lib/i18n'
 import type { ExerciseRow } from '@/types/database'
 
 interface ExerciseGifDisplayProps {
@@ -18,7 +20,10 @@ interface ExerciseGifDisplayProps {
  * Image lifecycle events rather than a data-fetching hook.
  */
 export function ExerciseGifDisplay({ exercise, showInstructions = true }: ExerciseGifDisplayProps) {
-  const gifUrl = getExerciseGifUrl(exercise.fitgifs_slug)
+  const language = useAppLanguage()
+  const instructions = getLocalizedText(exercise.instructions_es, exercise.instructions_en, language)
+  const tips = getLocalizedText(exercise.tips_es, exercise.tips_en, language)
+  const gifUrl = getExerciseGifUrl(exercise.fitgifs_slug) || exercise.image_url
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>(gifUrl ? 'loading' : 'error')
 
   const hasGif = status === 'loaded'
@@ -69,29 +74,20 @@ export function ExerciseGifDisplay({ exercise, showInstructions = true }: Exerci
               <Text style={styles.sectionTitle}>Instrucciones</Text>
             </View>
             <Text style={styles.instructionsText}>
-              {exercise.instructions || 'Sin instrucciones disponibles'}
+              {instructions || 'Sin instrucciones disponibles'}
             </Text>
           </View>
 
-          {exercise.tips && (
+          {tips && (
             <View style={styles.tipsSection}>
               <View style={styles.sectionHeader}>
                 <Ionicons name="bulb-outline" size={20} color="#F59E0B" />
                 <Text style={styles.sectionTitle}>Tips</Text>
               </View>
-              <Text style={styles.tipsText}>{exercise.tips}</Text>
+              <Text style={styles.tipsText}>{tips}</Text>
             </View>
           )}
 
-          {exercise.image_url && (
-            <View style={styles.imageSection}>
-              <Text style={styles.imageLabel}>Referencia visual</Text>
-              <View style={styles.imagePlaceholder}>
-                <Ionicons name="image-outline" size={48} color={WolfTheme.colors.textSecondary} />
-                <Text style={styles.imagePath}>{exercise.image_url}</Text>
-              </View>
-            </View>
-          )}
         </ScrollView>
       )}
 
@@ -164,9 +160,6 @@ const styles = StyleSheet.create({
   tipsSection: {
     gap: WolfTheme.spacing.md,
   },
-  imageSection: {
-    gap: WolfTheme.spacing.md,
-  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -191,28 +184,6 @@ const styles = StyleSheet.create({
     borderRadius: WolfTheme.radius.card,
     borderLeftWidth: 3,
     borderLeftColor: '#F59E0B',
-  },
-  imageLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: WolfTheme.colors.textSecondary,
-  },
-  imagePlaceholder: {
-    backgroundColor: WolfTheme.colors.surface,
-    borderRadius: WolfTheme.radius.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 200,
-    gap: WolfTheme.spacing.md,
-    borderWidth: 1,
-    borderColor: WolfTheme.colors.border,
-    borderStyle: 'dashed',
-  },
-  imagePath: {
-    fontSize: 12,
-    color: WolfTheme.colors.textSecondary,
-    maxWidth: 200,
-    textAlign: 'center',
   },
   indicator: {
     flexDirection: 'row',

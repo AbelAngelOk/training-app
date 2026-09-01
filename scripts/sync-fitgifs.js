@@ -3,7 +3,12 @@
  * Sync exercises.fitgifs_slug against the fitgifs API (api-training-app.onrender.com).
  * Fetches the full remote catalog once and matches it in-memory against local
  * exercises that don't have a fitgifs_slug yet. Idempotent — rerun any time,
- * already-linked (or manually corrected) rows are skipped.
+ * already-linked (or manually corrected) rows are skipped. Tries both name_es
+ * and name_en against the fitgifs catalog and keeps whichever result is better.
+ * Only targets rows with no image source at all (fitgifs_slug AND image_url
+ * both null) — exercises already carrying a Storage-hosted image_url (see
+ * scripts/gif-import/) are left alone rather than overwritten with an
+ * external-API GIF that might not exist or match as well.
  */
 require('dotenv').config()
 
@@ -71,8 +76,16 @@ function matchExercise(localName, candidates) {
   const exact = candidates.find((c) => c.n_en === n || c.n_es === n)
   if (exact) return { tier: 'exact', candidate: exact, score: 1 }
 
+  // Guard every branch on a non-empty candidate field — some catalog entries
+  // (biblioteca_ejercicios source) have n_en === '' (never translated), and
+  // `anything.includes('')` is always true in JS, which without this guard
+  // makes EVERY such candidate a false "containment" match for every query.
   const contained = candidates.filter(
-    (c) => c.n_en.includes(n) || n.includes(c.n_en) || c.n_es.includes(n) || n.includes(c.n_es)
+    (c) =>
+      (c.n_en && c.n_en.includes(n)) ||
+      (c.n_en && n.includes(c.n_en)) ||
+      (c.n_es && c.n_es.includes(n)) ||
+      (c.n_es && n.includes(c.n_es))
   )
   if (contained.length > 0) {
     const best = contained.reduce((a, b) => {
@@ -95,6 +108,25 @@ function matchExercise(localName, candidates) {
   if (bestScore >= FUZZY_THRESHOLD) return { tier: 'fuzzy', candidate: best, score: bestScore }
 
   return { tier: 'none', candidate: null, score: bestScore }
+}
+
+const TIER_RANK = { exact: 3, containment: 2, fuzzy: 1, none: 0 }
+
+/**
+ * Tries matchExercise against every given local name (name_es, name_en) and
+ * keeps the best result — higher tier wins, ties broken by score.
+ */
+function matchExerciseBest(localNames, candidates) {
+  let best = { tier: 'none', candidate: null, score: -1 }
+  for (const name of localNames) {
+    if (!name) continue
+    const result = matchExercise(name, candidates)
+    const better =
+      TIER_RANK[result.tier] > TIER_RANK[best.tier] ||
+      (TIER_RANK[result.tier] === TIER_RANK[best.tier] && (result.score ?? 0) > (best.score ?? 0))
+    if (better) best = result
+  }
+  return best
 }
 
 async function fetchJson(url, timeoutMs) {
@@ -129,8 +161,9 @@ async function syncFitgifs() {
   while (true) {
     const { data: rows, error } = await supabase
       .from('exercises')
-      .select('id, name')
+      .select('id, name_es, name_en')
       .is('fitgifs_slug', null)
+      .is('image_url', null)
       .order('id')
       .range(offset, offset + PAGE_SIZE - 1)
 
@@ -142,12 +175,13 @@ async function syncFitgifs() {
 
     for (const row of rows) {
       processed++
+      const displayName = row.name_es || row.name_en
       try {
-        const result = matchExercise(row.name, candidates)
+        const result = matchExerciseBest([row.name_es, row.name_en], candidates)
 
         if (result.tier === 'none') {
-          report.unmatched.push({ id: row.id, name: row.name, bestScore: Number(result.score.toFixed(3)) })
-          console.log(`  ⏭️  "${row.name}" — sin match (mejor score: ${result.score.toFixed(2)})`)
+          report.unmatched.push({ id: row.id, name: displayName, bestScore: Number((result.score ?? 0).toFixed(3)) })
+          console.log(`  ⏭️  "${displayName}" — sin match (mejor score: ${(result.score ?? 0).toFixed(2)})`)
           continue
         }
 
@@ -157,24 +191,24 @@ async function syncFitgifs() {
           .eq('id', row.id)
 
         if (updateError) {
-          report.errors.push({ id: row.id, name: row.name, error: updateError.message })
-          console.log(`  ❌ "${row.name}": ${updateError.message}`)
+          report.errors.push({ id: row.id, name: displayName, error: updateError.message })
+          console.log(`  ❌ "${displayName}": ${updateError.message}`)
           continue
         }
 
         const entry = {
           id: row.id,
-          name: row.name,
+          name: displayName,
           slug: result.candidate.slug,
           matchedName: result.candidate.name_en,
           score: result.score === null ? null : Number(result.score.toFixed(3)),
         }
         report[result.tier].push(entry)
         const icon = result.tier === 'exact' ? '✅' : '🔗'
-        console.log(`  ${icon} "${row.name}" → "${result.candidate.slug}" (${result.tier})`)
+        console.log(`  ${icon} "${displayName}" → "${result.candidate.slug}" (${result.tier})`)
       } catch (err) {
-        report.errors.push({ id: row.id, name: row.name, error: err.message })
-        console.log(`  ❌ "${row.name}": ${err.message}`)
+        report.errors.push({ id: row.id, name: displayName, error: err.message })
+        console.log(`  ❌ "${displayName}": ${err.message}`)
       }
     }
 

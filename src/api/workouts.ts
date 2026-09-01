@@ -15,7 +15,7 @@ export type WorkoutExecutionWithDetails = WorkoutExecutionRow & {
       target_sets: number | null
       target_reps: number | null
       target_weight: number | null
-      exercises: { id: string; name: string; image_url: string | null }
+      exercises: { id: string; name_es: string; name_en: string; image_url: string | null }
     }
     workout_sets: WorkoutSetRow[]
   })[]
@@ -77,7 +77,7 @@ export async function getActiveWorkout(userId: string): Promise<WorkoutExecution
         *,
         session_exercises (
           id, sort_order, target_sets, target_reps, target_weight,
-          exercises ( id, name, image_url )
+          exercises ( id, name_es, name_en, image_url )
         ),
         workout_sets ( * )
       )
@@ -115,7 +115,7 @@ export async function getWorkout(id: string): Promise<WorkoutExecutionWithDetail
         *,
         session_exercises (
           id, sort_order, target_sets, target_reps, target_weight,
-          exercises ( id, name, image_url )
+          exercises ( id, name_es, name_en, image_url )
         ),
         workout_sets ( * )
       )
@@ -135,7 +135,7 @@ export type SessionHistoryExecution = WorkoutExecutionRow & {
       target_sets: number | null
       target_reps: number | null
       target_weight: number | null
-      exercises: { name: string }
+      exercises: { name_es: string; name_en: string }
     }
     workout_sets: WorkoutSetRow[]
   })[]
@@ -189,7 +189,7 @@ export async function getSessionExecutionHistory(
             *,
             session_exercises (
               id, sort_order, target_sets, target_reps, target_weight,
-              exercises ( name )
+              exercises ( name_es, name_en )
             ),
             workout_sets ( * )
           )

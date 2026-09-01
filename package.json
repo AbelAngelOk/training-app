@@ -3,7 +3,6 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@expo/ui": "~0.2.0-beta.9",
     "@expo/vector-icons": "^15.0.3",
     "@hookform/resolvers": "^5.4.0",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -17,6 +16,7 @@
     "expo-glass-effect": "~0.1.10",
     "expo-image": "~3.0.11",
     "expo-linking": "~8.0.12",
+    "expo-localization": "~17.0.9",
     "expo-router": "~6.0.24",
     "expo-secure-store": "~15.0.8",
     "expo-splash-screen": "~31.0.13",
@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "eas-cli": "^21.0.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
@@ -55,7 +56,13 @@
     "seed:programs": "node ./scripts/seed-programs.js",
     "seed:exercises": "node ./scripts/seed-exercises-from-api.js",
     "seed:add-exercises": "node ./scripts/add-exercises-to-sessions.js",
-    "sync:fitgifs": "node ./scripts/sync-fitgifs.js"
+    "sync:fitgifs": "node ./scripts/sync-fitgifs.js",
+    "translations:export": "node ./scripts/export-catalog-for-translation.js",
+    "translations:apply": "node ./scripts/apply-catalog-translations.js",
+    "translations:verify": "node ./scripts/verify-catalog-translations.js",
+    "build:android:preview": "eas build --platform android --profile preview",
+    "build:android": "eas build --platform android --profile production",
+    "submit:android": "eas submit --platform android --profile production"
   },
   "private": true,
   "overrides": {

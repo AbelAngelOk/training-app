@@ -56,7 +56,7 @@ export function useActiveChallenges() {
 export function useChallengeProgress(sessionIds: string[]) {
   const user = useAuthStore((s) => s.user)
   return useQuery({
-    queryKey: ['challenge-progress', sessionIds.slice().sort().join(',')],
+    queryKey: [...QUERY_KEYS.CHALLENGE_PROGRESS, sessionIds.slice().sort().join(',')],
     queryFn: () => getCompletedSessionIds(user!.id, sessionIds),
     enabled: !!user && sessionIds.length > 0,
   })

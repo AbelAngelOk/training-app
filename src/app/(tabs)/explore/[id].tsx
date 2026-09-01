@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { WolfTheme } from '@/constants/colors'
 import { useProgramWithExercises, useAssignProgram } from '@/hooks/use-programs'
 import { useProgramLimits } from '@/hooks/use-program-limits'
+import { useAppLanguage } from '@/hooks/use-app-language'
+import { getLocalizedText } from '@/lib/i18n'
 import { ProgramLimitError } from '@/api/programs'
 import { AlertModal } from '@/components/ui/AlertModal'
 import { SessionAccordion } from '@/components/training/cards/SessionAccordion'
@@ -56,6 +58,7 @@ export default function ExploreDetailScreen() {
     message: '',
   })
 
+  const language = useAppLanguage()
   const { data: program, isLoading } = useProgramWithExercises(id || '')
   const { mutateAsync: assignProgram, isPending: isAssigning } = useAssignProgram()
   const { canActivate, maxAllowed, isPremium } = useProgramLimits('program')
@@ -91,6 +94,10 @@ export default function ExploreDetailScreen() {
         message: 'Programa asignado correctamente. Podés verlo en tu pantalla de entrenamiento.',
       })
       setTimeout(() => {
+        // Reset the explore stack back to its index first — otherwise the
+        // next time the user taps the "Explorar" tab, it resumes right here
+        // (this program's detail screen) instead of showing the explore list.
+        router.dismissAll()
         router.replace('/(tabs)/training')
       }, 1500)
     } catch (error) {
@@ -154,8 +161,10 @@ export default function ExploreDetailScreen() {
         estimatedMinutes: pd.training_sessions.estimated_duration_minutes || 60,
         exercises: sessionExercises.map((se: any) => ({
           id: se.id,
-          name: se.exercises.name,
-          muscleGroup: se.exercises.muscle_groups?.name ?? '',
+          name: getLocalizedText(se.exercises.name_es, se.exercises.name_en, language),
+          muscleGroup: (se.exercises.muscle_groups ?? [])
+            .map((mg: { name_es: string; name_en: string }) => getLocalizedText(mg.name_es, mg.name_en, language))
+            .join(', '),
           targetSets: se.target_sets ?? 3,
           targetReps: se.target_reps ?? 10,
           restSeconds: se.rest_seconds ?? 60,
@@ -254,7 +263,7 @@ export default function ExploreDetailScreen() {
             disabled={isAssigning}
           >
             <Text style={styles.assignButtonText}>
-              {isAssigning ? 'Asignando...' : 'Usar este programa'}
+              {isAssigning ? 'Suscribiendo...' : 'Suscribirme al programa'}
             </Text>
           </TouchableOpacity>
         </View>

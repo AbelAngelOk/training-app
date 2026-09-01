@@ -123,7 +123,7 @@ export default function EditSessionScreen() {
           session.session_exercises.map((se) => (
             <View key={se.id} style={styles.exerciseRow}>
               <TouchableOpacity style={styles.exerciseInfo} onPress={() => setEditTarget(se)}>
-                <Text style={styles.exerciseName}>{se.exercises.name}</Text>
+                <Text style={styles.exerciseName}>{se.exercises.name_es}</Text>
                 <Text style={styles.exerciseTargets}>
                   {se.target_sets ?? '—'}×{se.target_reps ?? '—'}
                   {se.target_weight ? ` @ ${se.target_weight}kg` : ''}
@@ -198,7 +198,7 @@ export default function EditSessionScreen() {
 
       <ConfirmDeleteModal
         visible={!!removeTarget}
-        message={`¿Quitar "${removeTarget?.exercises.name}" de esta sesión?`}
+        message={`¿Quitar "${removeTarget?.exercises.name_es}" de esta sesión?`}
         loading={removeExercise.isPending}
         onConfirm={async () => {
           if (!removeTarget) return
@@ -293,7 +293,7 @@ function ExercisePickerModal({
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
     if (!term) return exercises ?? []
-    return (exercises ?? []).filter((e) => e.name.toLowerCase().includes(term))
+    return (exercises ?? []).filter((e) => e.name_es.toLowerCase().includes(term))
   }, [exercises, search])
 
   const reset = () => {
@@ -322,7 +322,7 @@ function ExercisePickerModal({
               <ScrollView style={styles.modalList}>
                 {filtered.slice(0, 50).map((e) => (
                   <TouchableOpacity key={e.id} style={styles.modalItem} onPress={() => setSelectedId(e.id)}>
-                    <Text style={styles.modalItemText}>{e.name}</Text>
+                    <Text style={styles.modalItemText}>{e.name_es}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -330,7 +330,7 @@ function ExercisePickerModal({
           ) : (
             <>
               <Text style={styles.modalTitle}>
-                {(exercises ?? []).find((e) => e.id === selectedId)?.name}
+                {(exercises ?? []).find((e) => e.id === selectedId)?.name_es}
               </Text>
               <TargetsFields
                 sets={sets}
@@ -402,7 +402,7 @@ function TargetEditModal({
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>{sessionExercise.exercises.name}</Text>
+          <Text style={styles.modalTitle}>{sessionExercise.exercises.name_es}</Text>
           <TargetsFields
             sets={sets}
             setSets={setSets}

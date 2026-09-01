@@ -3,6 +3,8 @@ import { StyleSheet, Text, TextInput, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 
 import { WolfTheme } from '@/constants/colors'
+import { useAppLanguage } from '@/hooks/use-app-language'
+import { getLocalizedText } from '@/lib/i18n'
 import type { SessionWithExercises } from '@/api/sessions'
 
 type SessionExerciseWithExercise = SessionWithExercises['session_exercises'][number]
@@ -35,6 +37,16 @@ export function ExerciseTargetCard({
   editable,
   onSaveTargets,
 }: ExerciseTargetCardProps) {
+  const language = useAppLanguage()
+  const exerciseName = getLocalizedText(
+    sessionExercise.exercises.name_es,
+    sessionExercise.exercises.name_en,
+    language
+  )
+  const muscleGroupNames = sessionExercise.exercises.muscle_groups
+    .map((mg) => getLocalizedText(mg.name_es, mg.name_en, language))
+    .join(', ')
+
   const [sets, setSets] = useState(String(sessionExercise.target_sets ?? ''))
   const [reps, setReps] = useState(String(sessionExercise.target_reps ?? ''))
   const [weight, setWeight] = useState(String(sessionExercise.target_weight ?? ''))
@@ -68,11 +80,9 @@ export function ExerciseTargetCard({
         </View>
         <View style={styles.headerMeta}>
           <Text style={styles.name} numberOfLines={2}>
-            {sessionExercise.exercises.name}
+            {exerciseName}
           </Text>
-          <Text style={styles.muscle}>
-            {sessionExercise.exercises.muscle_groups?.name ?? ''}
-          </Text>
+          <Text style={styles.muscle}>{muscleGroupNames}</Text>
         </View>
         <View style={styles.restBadge}>
           <Ionicons name="timer-outline" size={13} color={WolfTheme.colors.textSecondary} />

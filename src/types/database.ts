@@ -281,51 +281,71 @@ interface TableDefinitions {
       muscle_groups: {
         Row: {
           id: string
-          name: string
+          name_es: string
+          name_en: string
+          description_es: string | null
+          description_en: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          name: string
+          name_es: string
+          name_en: string
+          description_es?: string | null
+          description_en?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
-          name?: string
+          name_es?: string
+          name_en?: string
+          description_es?: string | null
+          description_en?: string | null
           updated_at?: string
         }
       }
       equipment: {
         Row: {
           id: string
-          name: string
+          name_es: string
+          name_en: string
+          description_es: string | null
+          description_en: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          name: string
+          name_es: string
+          name_en: string
+          description_es?: string | null
+          description_en?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
-          name?: string
+          name_es?: string
+          name_en?: string
+          description_es?: string | null
+          description_en?: string | null
           updated_at?: string
         }
       }
       exercises: {
         Row: {
           id: string
-          name: string
-          description: string | null
-          instructions: string | null
+          name_es: string
+          name_en: string
+          description_es: string | null
+          description_en: string | null
+          instructions_es: string | null
+          instructions_en: string | null
+          tips_es: string | null
+          tips_en: string | null
           image_url: string | null
-          tips: string | null
           external_id: string | null
           fitgifs_slug: string | null
-          muscle_group_id: string
-          equipment_id: string | null
           difficulty: ExerciseDifficulty
           active: boolean
           created_at: string
@@ -333,34 +353,64 @@ interface TableDefinitions {
         }
         Insert: {
           id?: string
-          name: string
-          description?: string | null
-          instructions?: string | null
+          name_es: string
+          name_en: string
+          description_es?: string | null
+          description_en?: string | null
+          instructions_es?: string | null
+          instructions_en?: string | null
+          tips_es?: string | null
+          tips_en?: string | null
           image_url?: string | null
-          tips?: string | null
           external_id?: string | null
           fitgifs_slug?: string | null
-          muscle_group_id: string
-          equipment_id?: string | null
           difficulty?: ExerciseDifficulty
           active?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: {
-          name?: string
-          description?: string | null
-          instructions?: string | null
+          name_es?: string
+          name_en?: string
+          description_es?: string | null
+          description_en?: string | null
+          instructions_es?: string | null
+          instructions_en?: string | null
+          tips_es?: string | null
+          tips_en?: string | null
           image_url?: string | null
-          tips?: string | null
           external_id?: string | null
           fitgifs_slug?: string | null
-          muscle_group_id?: string
-          equipment_id?: string | null
           difficulty?: ExerciseDifficulty
           active?: boolean
           updated_at?: string
         }
+      }
+      exercise_muscle_groups: {
+        Row: {
+          exercise_id: string
+          muscle_group_id: string
+          created_at: string
+        }
+        Insert: {
+          exercise_id: string
+          muscle_group_id: string
+          created_at?: string
+        }
+        Update: never
+      }
+      exercise_equipment: {
+        Row: {
+          exercise_id: string
+          equipment_id: string
+          created_at: string
+        }
+        Insert: {
+          exercise_id: string
+          equipment_id: string
+          created_at?: string
+        }
+        Update: never
       }
       workout_executions: {
         Row: {
@@ -611,6 +661,15 @@ export interface Database {
         }
         Returns: string
       }
+      upsert_exercise_with_relations: {
+        Args: {
+          p_id: string | null
+          p_exercise: Record<string, unknown>
+          p_muscle_group_ids: string[]
+          p_equipment_ids: string[] | null
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
@@ -634,6 +693,8 @@ export type SessionExerciseRow = Database['public']['Tables']['session_exercises
 export type MuscleGroupRow = Database['public']['Tables']['muscle_groups']['Row']
 export type EquipmentRow = Database['public']['Tables']['equipment']['Row']
 export type ExerciseRow = Database['public']['Tables']['exercises']['Row']
+export type ExerciseMuscleGroupRow = Database['public']['Tables']['exercise_muscle_groups']['Row']
+export type ExerciseEquipmentRow = Database['public']['Tables']['exercise_equipment']['Row']
 export type WorkoutExecutionRow = Database['public']['Tables']['workout_executions']['Row']
 export type WorkoutExerciseExecutionRow = Database['public']['Tables']['workout_exercise_executions']['Row']
 export type WorkoutSetRow = Database['public']['Tables']['workout_sets']['Row']

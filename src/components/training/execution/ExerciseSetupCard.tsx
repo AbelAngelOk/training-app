@@ -1,6 +1,8 @@
 import { StyleSheet, Text, TextInput, View } from 'react-native'
 
 import { WolfTheme } from '@/constants/colors'
+import { useAppLanguage } from '@/hooks/use-app-language'
+import { getLocalizedText } from '@/lib/i18n'
 import type { SessionWithExercises } from '@/api/sessions'
 
 type SessionExerciseWithExercise = SessionWithExercises['session_exercises'][number]
@@ -31,15 +33,23 @@ export function ExerciseSetupCard({
   values,
   onChange,
 }: ExerciseSetupCardProps) {
+  const language = useAppLanguage()
+  const exerciseName = getLocalizedText(
+    sessionExercise.exercises.name_es,
+    sessionExercise.exercises.name_en,
+    language
+  )
+  const muscleGroupNames = sessionExercise.exercises.muscle_groups
+    .map((mg) => getLocalizedText(mg.name_es, mg.name_en, language))
+    .join(', ')
+
   return (
     <View style={styles.container}>
       <Text style={styles.stepLabel}>
         Ejercicio {index + 1} de {total}
       </Text>
-      <Text style={styles.name}>{sessionExercise.exercises.name}</Text>
-      {sessionExercise.exercises.muscle_groups?.name ? (
-        <Text style={styles.muscle}>{sessionExercise.exercises.muscle_groups.name}</Text>
-      ) : null}
+      <Text style={styles.name}>{exerciseName}</Text>
+      {muscleGroupNames ? <Text style={styles.muscle}>{muscleGroupNames}</Text> : null}
 
       <Text style={styles.question}>¿Con qué vas a empezar este ejercicio?</Text>
 

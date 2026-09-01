@@ -1,33 +1,130 @@
-import {
-  useCreateEquipment,
-  useDeleteEquipment,
-  useEquipment,
-  useUpdateEquipment,
-} from '@/hooks/use-exercises'
-import { CatalogManager } from '@/components/admin/CatalogManager'
+import { useMemo, useState } from 'react'
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { router } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
 
-export default function AdminEquipmentScreen() {
-  const { data: equipment, isLoading } = useEquipment()
-  const createEquipment = useCreateEquipment()
-  const updateEquipment = useUpdateEquipment()
-  const deleteEquipment = useDeleteEquipment()
+import { WolfTheme } from '@/constants/colors'
+import { useDeleteEquipment, useEquipment } from '@/hooks/use-exercises'
+import { DataTable, type DataTableColumn } from '@/components/admin/DataTable'
+import { ConfirmDeleteModal } from '@/components/admin/ConfirmDeleteModal'
+import { AlertModal } from '@/components/ui/AlertModal'
+import { Button } from '@/components/ui/Button'
+import type { EquipmentRow } from '@/types/database'
 
+function isForeignKeyViolation(error: unknown): boolean {
   return (
-    <CatalogManager
-      title="Equipamiento"
-      itemLabel="equipo"
-      items={equipment}
-      isLoading={isLoading}
-      creating={createEquipment.isPending}
-      updating={updateEquipment.isPending}
-      deleting={deleteEquipment.isPending}
-      onCreate={async (name) => {
-        await createEquipment.mutateAsync(name)
-      }}
-      onUpdate={async (id, name) => {
-        await updateEquipment.mutateAsync({ id, name })
-      }}
-      onDelete={(id) => deleteEquipment.mutateAsync(id)}
-    />
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === '23503'
   )
 }
+
+export default function AdminEquipmentScreen() {
+  const [deleteTarget, setDeleteTarget] = useState<EquipmentRow | null>(null)
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null)
+  const [errorAlert, setErrorAlert] = useState<string | null>(null)
+
+  const { data: equipment, isLoading } = useEquipment()
+  const deleteEquipment = useDeleteEquipment()
+
+  const columns = useMemo<DataTableColumn<EquipmentRow>[]>(
+    () => [
+      { key: 'name_es', header: 'Nombre (Español)', width: 220, render: (row) => row.name_es },
+      { key: 'name_en', header: 'Nombre (English)', width: 220, render: (row) => row.name_en },
+    ],
+    []
+  )
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      await deleteEquipment.mutateAsync(deleteTarget.id)
+      setDeleteTarget(null)
+    } catch (err) {
+      setDeleteTarget(null)
+      if (isForeignKeyViolation(err)) {
+        setBlockedMessage(
+          `"${deleteTarget.name_es}" está en uso por uno o más ejercicios. No se puede eliminar.`
+        )
+      } else {
+        setErrorAlert('No se pudo eliminar el equipo. Intentá de nuevo.')
+      }
+    }
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Equipamiento</Text>
+          <Text style={styles.subtitle}>{equipment?.length ?? 0} resultados</Text>
+        </View>
+        <Button label="Nuevo equipo" onPress={() => router.push('/admin/equipment/new')} size="md" />
+      </View>
+
+      <DataTable
+        columns={columns}
+        rows={equipment ?? []}
+        keyExtractor={(row) => row.id}
+        isLoading={isLoading}
+        emptyLabel="No hay equipo creado todavía."
+        renderActions={(row) => (
+          <>
+            <TouchableOpacity onPress={() => router.push(`/admin/equipment/${row.id}`)}>
+              <Ionicons name="create-outline" size={20} color={WolfTheme.colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setDeleteTarget(row)}>
+              <Ionicons name="trash-outline" size={20} color={WolfTheme.colors.error} />
+            </TouchableOpacity>
+          </>
+        )}
+      />
+
+      <ConfirmDeleteModal
+        visible={!!deleteTarget}
+        message={`¿Eliminar "${deleteTarget?.name_es}"? Esta acción no se puede deshacer.`}
+        loading={deleteEquipment.isPending}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      <AlertModal
+        visible={!!blockedMessage}
+        type="error"
+        title="No se puede eliminar"
+        message={blockedMessage ?? ''}
+        onDismiss={() => setBlockedMessage(null)}
+      />
+
+      <AlertModal
+        visible={!!errorAlert}
+        type="error"
+        title="Error"
+        message={errorAlert ?? ''}
+        onDismiss={() => setErrorAlert(null)}
+      />
+    </ScrollView>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: {
+    padding: WolfTheme.spacing.xl,
+    gap: WolfTheme.spacing.md,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: WolfTheme.colors.textPrimary,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: WolfTheme.colors.textSecondary,
+  },
+})

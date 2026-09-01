@@ -1,5 +1,11 @@
 import { supabase } from '@/lib/supabase'
-import type { ContentStatus, WorkoutProgramRow, UserProgramRow, ProgramDayRow } from '@/types/database'
+import type {
+  ContentStatus,
+  WorkoutProgramRow,
+  UserProgramRow,
+  ProgramDayRow,
+  MuscleGroupRow,
+} from '@/types/database'
 
 export type ProgramWithDays = WorkoutProgramRow & {
   program_days: (ProgramDayRow & {
@@ -119,10 +125,23 @@ export type ProgramWithFullExercises = WorkoutProgramRow & {
         target_sets: number | null
         target_reps: number | null
         rest_seconds: number | null
-        exercises: { id: string; name: string; muscle_groups: { name: string } | null }
+        exercises: { id: string; name_es: string; name_en: string; muscle_groups: MuscleGroupRow[] }
       }[]
     }
   })[]
+}
+
+type RawProgramExercise = {
+  id: string
+  target_sets: number | null
+  target_reps: number | null
+  rest_seconds: number | null
+  exercises: {
+    id: string
+    name_es: string
+    name_en: string
+    exercise_muscle_groups: { muscle_groups: MuscleGroupRow }[]
+  }
 }
 
 /** Program detail with full exercise data per session (for the Explore preview) */
@@ -137,7 +156,7 @@ export async function getProgramWithExercises(id: string): Promise<ProgramWithFu
           id, name, estimated_duration_minutes,
           session_exercises (
             id, target_sets, target_reps, rest_seconds,
-            exercises ( id, name, muscle_groups ( name ) )
+            exercises ( id, name_es, name_en, exercise_muscle_groups ( muscle_groups (*) ) )
           )
         )
       )
@@ -145,7 +164,38 @@ export async function getProgramWithExercises(id: string): Promise<ProgramWithFu
     .eq('id', id)
     .maybeSingle()
   if (error) throw error
-  return data as unknown as ProgramWithFullExercises | null
+  if (!data) return null
+
+  const raw = data as unknown as WorkoutProgramRow & {
+    program_days: (ProgramDayRow & {
+      training_sessions: {
+        id: string
+        name: string
+        estimated_duration_minutes: number | null
+        session_exercises: RawProgramExercise[]
+      }
+    })[]
+  }
+
+  return {
+    ...raw,
+    program_days: raw.program_days.map((pd) => ({
+      ...pd,
+      training_sessions: {
+        ...pd.training_sessions,
+        session_exercises: pd.training_sessions.session_exercises.map((se) => {
+          const { exercise_muscle_groups, ...exercise } = se.exercises
+          return {
+            ...se,
+            exercises: {
+              ...exercise,
+              muscle_groups: exercise_muscle_groups.map((r) => r.muscle_groups),
+            },
+          }
+        }),
+      },
+    })),
+  }
 }
 
 /** Active program assignments (challenges excluded — they have their own list) */

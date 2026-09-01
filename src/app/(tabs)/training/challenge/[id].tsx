@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { WolfTheme } from '@/constants/colors'
 import { useActiveChallenges, useChallenge, useChallengeProgress } from '@/hooks/use-challenges'
 import { useSetUserProgramActive } from '@/hooks/use-programs'
+import { useAppLanguage } from '@/hooks/use-app-language'
+import { getLocalizedText } from '@/lib/i18n'
 import { AlertModal } from '@/components/ui/AlertModal'
 import { ProgramDetailSkeleton } from '@/components/training/skeletons/ProgramDetailSkeleton'
 
@@ -16,12 +18,13 @@ const CHALLENGE_COLOR = WolfTheme.colors.warning
  * Detail screen for a challenge the user already has active — reached from
  * the training tab's "Retos activos" card. Separate from
  * explore/challenge/[id].tsx (which is for browsing/starting a new one):
- * this one has no "Comenzar reto" CTA (it would just re-trigger the plan
+ * this one has no "Suscribirme al reto" CTA (it would just re-trigger the plan
  * limit, since the challenge already occupies the active slot), instead it
  * lets you jump straight into any day's session and deactivate from here.
  */
 export default function ActiveChallengeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
+  const language = useAppLanguage()
   const { data: challenge, isLoading } = useChallenge(id || '')
   const { data: activeChallenges } = useActiveChallenges()
   const setActive = useSetUserProgramActive()
@@ -144,7 +147,8 @@ export default function ActiveChallengeScreen() {
                   <Text style={styles.dayName}>{session.name}</Text>
                   {exercise && (
                     <Text style={styles.dayDetail}>
-                      {exercise.exercises.name} — {exercise.target_sets}×{exercise.target_reps}
+                      {getLocalizedText(exercise.exercises.name_es, exercise.exercises.name_en, language)} —{' '}
+                      {exercise.target_sets}×{exercise.target_reps}
                     </Text>
                   )}
                 </View>

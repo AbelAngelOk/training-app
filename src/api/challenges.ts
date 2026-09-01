@@ -23,7 +23,7 @@ export type ChallengeWithDays = ChallengeRow & {
       session_exercises: {
         target_sets: number | null
         target_reps: number | null
-        exercises: { name: string }
+        exercises: { name_es: string; name_en: string }
       }[]
     }
   }[]
@@ -88,7 +88,7 @@ export async function getChallenge(id: string): Promise<ChallengeWithDays | null
         day_number,
         training_sessions (
           id, name, estimated_duration_minutes,
-          session_exercises ( target_sets, target_reps, exercises ( name ) )
+          session_exercises ( target_sets, target_reps, exercises ( name_es, name_en ) )
         )
       )
     `)

@@ -112,7 +112,7 @@ export function ExerciseAccordion({ exercise, index, onSetsChange }: ExerciseAcc
         {/* Video button */}
         <TouchableOpacity
           style={styles.videoBtn}
-          onPress={() => router.push(`/(tabs)/training/exercise/${exercise.id}?name=${exercise.name}`)}
+          onPress={() => router.push(`/(tabs)/training/exercise/${exercise.id}`)}
           hitSlop={8}
         >
           <Ionicons name="play-circle-outline" size={20} color={WolfTheme.colors.primary} />

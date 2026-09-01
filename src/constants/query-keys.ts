@@ -14,6 +14,7 @@ export const QUERY_KEYS = {
   CHALLENGE: (id: string) => ['challenges', id] as const,
   CHALLENGES_PAGE: (search: string) => ['challenges-page', search] as const,
   ACTIVE_CHALLENGES: ['active-challenges'] as const,
+  CHALLENGE_PROGRESS: ['challenge-progress'] as const,
 
   SESSIONS: ['sessions'] as const,
   SESSION: (id: string) => ['sessions', id] as const,

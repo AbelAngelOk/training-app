@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -7,13 +7,15 @@ import { useQuery } from '@tanstack/react-query'
 import { WolfTheme } from '@/constants/colors'
 import { supabase } from '@/lib/supabase'
 import { ExerciseGifDisplay } from '@/components/training/ExerciseGifDisplay'
+import { useAppLanguage } from '@/hooks/use-app-language'
+import { getLocalizedText } from '@/lib/i18n'
 import type { ExerciseRow } from '@/types/database'
 
-async function getExerciseByName(name: string): Promise<ExerciseRow | null> {
+async function getExerciseById(id: string): Promise<ExerciseRow | null> {
   const { data, error } = await supabase
     .from('exercises')
     .select('*')
-    .eq('name', name)
+    .eq('id', id)
     .single()
 
   if (error && error.code !== 'PGRST116') {
@@ -25,12 +27,13 @@ async function getExerciseByName(name: string): Promise<ExerciseRow | null> {
 }
 
 export default function ExerciseDetailScreen() {
-  const { name, id } = useLocalSearchParams<{ name: string; id: string }>()
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const language = useAppLanguage()
 
-  const { data: exercise, isLoading, error } = useQuery({
-    queryKey: ['exercise', name],
-    queryFn: () => getExerciseByName(name || ''),
-    enabled: !!name,
+  const { data: exercise, isLoading } = useQuery({
+    queryKey: ['exercise', id],
+    queryFn: () => getExerciseById(id || ''),
+    enabled: !!id,
   })
 
   if (isLoading) {
@@ -72,7 +75,7 @@ export default function ExerciseDetailScreen() {
           <Ionicons name="chevron-back" size={24} color={WolfTheme.colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {exercise.name}
+          {getLocalizedText(exercise.name_es, exercise.name_en, language)}
         </Text>
         <View style={{ width: 40 }} />
       </View>

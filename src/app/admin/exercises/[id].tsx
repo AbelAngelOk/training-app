@@ -29,15 +29,19 @@ export default function EditExerciseScreen() {
           submitLabel="Guardar cambios"
           loading={updateExercise.isPending}
           defaultValues={{
-            name: exercise.name,
-            description: exercise.description ?? '',
-            instructions: exercise.instructions ?? '',
-            tips: exercise.tips ?? '',
+            name_es: exercise.name_es,
+            name_en: exercise.name_en,
+            description_es: exercise.description_es ?? '',
+            description_en: exercise.description_en ?? '',
+            instructions_es: exercise.instructions_es ?? '',
+            instructions_en: exercise.instructions_en ?? '',
+            tips_es: exercise.tips_es ?? '',
+            tips_en: exercise.tips_en ?? '',
             image_url: exercise.image_url ?? '',
             external_id: exercise.external_id ?? '',
             fitgifs_slug: exercise.fitgifs_slug ?? '',
-            muscle_group_id: exercise.muscle_group_id,
-            equipment_id: exercise.equipment_id ?? undefined,
+            muscle_group_ids: exercise.muscle_groups.map((mg) => mg.id),
+            equipment_ids: exercise.equipment.map((eq) => eq.id),
             difficulty: exercise.difficulty,
           }}
           onSubmit={async (payload) => {

@@ -14,6 +14,8 @@ import { Ionicons } from '@expo/vector-icons'
 
 import { WolfTheme } from '@/constants/colors'
 import { useSession } from '@/hooks/use-sessions'
+import { useAppLanguage } from '@/hooks/use-app-language'
+import { getLocalizedText } from '@/lib/i18n'
 import {
   useActiveWorkout,
   useCancelWorkout,
@@ -49,6 +51,7 @@ export default function WorkoutExecuteScreen() {
   const clearRest = useActiveWorkoutStore((s) => s.clearRest)
   const reset = useActiveWorkoutStore((s) => s.reset)
 
+  const language = useAppLanguage()
   const { data: session } = useSession(id ?? '')
   const { data: activeWorkout } = useActiveWorkout()
   const logSetMutation = useLogSet()
@@ -127,8 +130,10 @@ export default function WorkoutExecuteScreen() {
       return {
         sessionExerciseId: se.id,
         exerciseExecutionId: executionIdForExercise,
-        name: se.exercises.name,
-        muscleGroup: se.exercises.muscle_groups?.name ?? '',
+        name: getLocalizedText(se.exercises.name_es, se.exercises.name_en, language),
+        muscleGroup: se.exercises.muscle_groups
+          .map((mg) => getLocalizedText(mg.name_es, mg.name_en, language))
+          .join(', '),
         targetSets,
         targetReps: se.target_reps ?? 0,
         targetWeight: se.target_weight === null ? null : Number(se.target_weight),
@@ -166,9 +171,18 @@ export default function WorkoutExecuteScreen() {
       if (target !== -1 && target !== fromIndex) {
         listRef.current?.scrollToIndex({ index: target, animated: true })
         setCurrentIndex(target)
+        return
+      }
+      // No incomplete exercise left (e.g. a single-exercise challenge day) —
+      // without this, the user is stranded on the last exercise card with no
+      // visible path to "Finalizar sesión" unless they think to swipe past it.
+      if (target === -1 && fromIndex !== pages.length - 1) {
+        const finishIndex = pages.length - 1
+        listRef.current?.scrollToIndex({ index: finishIndex, animated: true })
+        setCurrentIndex(finishIndex)
       }
     },
-    [exercises, setCurrentIndex]
+    [exercises, pages.length, setCurrentIndex]
   )
 
   const updateLocalSet = (exIndex: number, setIndex: number, patch: Partial<WorkoutSet>) => {

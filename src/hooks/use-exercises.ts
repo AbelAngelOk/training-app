@@ -17,6 +17,7 @@ import {
   updateEquipment,
   updateExercise,
   updateMuscleGroup,
+  type CatalogItemPayload,
   type ExercisePayload,
 } from '@/api/exercises'
 import { QUERY_KEYS } from '@/constants/query-keys'
@@ -60,8 +61,8 @@ export function useEquipment() {
 /** Admin listing (includes inactive exercises) */
 export function useExercisesAdmin(filters?: {
   search?: string
-  muscleGroupId?: string
-  equipmentId?: string
+  muscleGroupIds?: string[]
+  equipmentIds?: string[]
 }) {
   return useQuery({
     queryKey: [...QUERY_KEYS.EXERCISES, 'admin', filters],
@@ -85,7 +86,7 @@ export function useCreateExercise() {
 export function useUpdateExercise() {
   const invalidate = useInvalidateExercises()
   return useMutation({
-    mutationFn: ({ id, ...payload }: { id: string } & Partial<ExercisePayload>) =>
+    mutationFn: ({ id, ...payload }: { id: string } & ExercisePayload) =>
       updateExercise(id, payload),
     onSuccess: invalidate,
   })
@@ -123,7 +124,7 @@ function useInvalidateMuscleGroups() {
 export function useCreateMuscleGroup() {
   const invalidate = useInvalidateMuscleGroups()
   return useMutation({
-    mutationFn: (name: string) => createMuscleGroup(name),
+    mutationFn: (payload: CatalogItemPayload) => createMuscleGroup(payload),
     onSuccess: invalidate,
   })
 }
@@ -131,7 +132,8 @@ export function useCreateMuscleGroup() {
 export function useUpdateMuscleGroup() {
   const invalidate = useInvalidateMuscleGroups()
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => updateMuscleGroup(id, name),
+    mutationFn: ({ id, ...payload }: { id: string } & CatalogItemPayload) =>
+      updateMuscleGroup(id, payload),
     onSuccess: invalidate,
   })
 }
@@ -152,7 +154,7 @@ function useInvalidateEquipment() {
 export function useCreateEquipment() {
   const invalidate = useInvalidateEquipment()
   return useMutation({
-    mutationFn: (name: string) => createEquipment(name),
+    mutationFn: (payload: CatalogItemPayload) => createEquipment(payload),
     onSuccess: invalidate,
   })
 }
@@ -160,7 +162,8 @@ export function useCreateEquipment() {
 export function useUpdateEquipment() {
   const invalidate = useInvalidateEquipment()
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => updateEquipment(id, name),
+    mutationFn: ({ id, ...payload }: { id: string } & CatalogItemPayload) =>
+      updateEquipment(id, payload),
     onSuccess: invalidate,
   })
 }

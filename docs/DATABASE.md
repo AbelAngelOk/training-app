@@ -156,34 +156,60 @@ CHECK `program_day_schedule_xor`: exactamente uno de `weekday`/`day_number` est�
 | target_distance_meters | numeric | Nullable |
 | rest_seconds | integer | Nullable |
 
-**`muscle_groups`** — Solo lectura
-| Campo | Tipo |
-|---|---|
-| id | uuid PK |
-| name | text (unique) |
-
-**`equipment`** — Solo lectura
-| Campo | Tipo |
-|---|---|
-| id | uuid PK |
-| name | text (unique) |
-
-**`exercises`** — Solo lectura para clientes; escritura solo `admin` (dashboard) o `service_role`
+**`muscle_groups`** — Solo lectura para clientes; escritura solo `admin`/`service_role`. Catálogo **bilingüe** (ver `docs/I18N.md`)
 | Campo | Tipo | Notas |
 |---|---|---|
 | id | uuid PK | |
-| name | text | |
-| description | text | Nullable |
-| instructions | text | Nullable |
-| image_url | text | Nullable |
-| tips | text | Nullable |
+| name_es | text (unique) | |
+| name_en | text (unique) | |
+| description_es | text | Nullable. Descripción detallada (anatomía/uso), no traducción del nombre |
+| description_en | text | Nullable |
+
+**`equipment`** — Solo lectura para clientes; escritura solo `admin`/`service_role`. Catálogo **bilingüe** (ver `docs/I18N.md`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | uuid PK | |
+| name_es | text (unique) | |
+| name_en | text (unique) | |
+| description_es | text | Nullable. Descripción detallada, no traducción del nombre |
+| description_en | text | Nullable |
+
+**`exercises`** — Solo lectura para clientes; escritura solo `admin` (dashboard) o `service_role`. Catálogo **bilingüe** (ver `docs/I18N.md`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | uuid PK | |
+| name_es | text | |
+| name_en | text | |
+| description_es | text | Nullable |
+| description_en | text | Nullable |
+| instructions_es | text | Nullable |
+| instructions_en | text | Nullable |
+| tips_es | text | Nullable |
+| tips_en | text | Nullable |
+| image_url | text | Nullable. URL pública de imagen/GIF. Hoy poblada para ~1222 ejercicios importados de una biblioteca de GIFs (Supabase Storage, bucket `exercise-gifs`) — ver `docs/EXERCISE_GIF_ARCHITECTURE.md` |
 | external_id | text | Unique. ID from ExerciseDB API (solo para importar catálogo — `seed:exercises`). NULL = custom/local exercise |
-| fitgifs_slug | text | Nullable. Slug de fitgifs API (`/gif/{slug}`). NULL = sin GIF asociado |
-| muscle_group_id | uuid FK → muscle_groups | FK sin `ON DELETE` (NO ACTION) — no se puede borrar un grupo muscular en uso |
-| equipment_id | uuid FK → equipment | Nullable |
+| fitgifs_slug | text | Nullable. Slug de fitgifs API (`/gif/{slug}`). NULL = sin GIF asociado por esa vía |
 | difficulty | exercise_difficulty | |
 | active | boolean | Soft delete (dashboard admin). `session_exercises.exercise_id` es `ON DELETE RESTRICT`, así que borrar un ejercicio en uso falla — el dashboard ofrece desactivar en su lugar |
-| **NOTE** | GIFs fetched on-demand | Ver `src/api/exercise-gif.ts` / `docs/EXERCISE_GIF_ARCHITECTURE.md` — el GIF no se guarda, se arma la URL en runtime a partir de `fitgifs_slug` |
+| **NOTE** | Dos fuentes de imagen | `fitgifs_slug` (API externa) e `image_url` (Storage propio) son dos fuentes independientes del GIF a mostrar — `ExerciseGifDisplay.tsx` usa `fitgifs_slug` si existe, si no cae a `image_url`. Ningún ejercicio tiene ambos poblados hoy. Ver `docs/EXERCISE_GIF_ARCHITECTURE.md` |
+
+**`exercise_muscle_groups`** — Tabla de junction (muchos-a-muchos). Solo lectura para clientes; escritura solo `admin`/`service_role`
+| Campo | Tipo | Notas |
+|---|---|---|
+| exercise_id | uuid FK → exercises | `ON DELETE CASCADE` |
+| muscle_group_id | uuid FK → muscle_groups | `ON DELETE RESTRICT` — no se puede borrar un grupo muscular en uso |
+| created_at | timestamptz | |
+| PK | (exercise_id, muscle_group_id) | |
+
+**`exercise_equipment`** — Tabla de junction (muchos-a-muchos). Solo lectura para clientes; escritura solo `admin`/`service_role`
+| Campo | Tipo | Notas |
+|---|---|---|
+| exercise_id | uuid FK → exercises | `ON DELETE CASCADE` |
+| equipment_id | uuid FK → equipment | `ON DELETE RESTRICT` — no se puede borrar un equipo en uso |
+| created_at | timestamptz | |
+| PK | (exercise_id, equipment_id) | |
+
+Un ejercicio requiere al menos un grupo muscular (validado en el formulario del admin, no a nivel de base) y puede tener cero, uno o varios equipos. Crear/editar un ejercicio pasa por el RPC `upsert_exercise_with_relations` (ver más abajo), que escribe `exercises` + ambas tablas de junction de forma atómica.
 
 #### Ejecución de entrenamientos
 
@@ -317,6 +343,11 @@ CHECK `program_day_schedule_xor`: exactamente uno de `weekday`/`day_number` est�
 | `20260714000016_admin_select_user_programs.sql` | Policy adicional (aditiva) `user_programs: admin select` — sin ella, `getProgramAssignmentCount()` (chequeo previo a eliminar un programa/reto oficial, ya que `workout_program_id` es `ON DELETE CASCADE`) siempre devolvía 0 para asignaciones de otros usuarios, dejando el borrado duro sin protección real | ✅ Aplicada |
 | `20260714000017_admin_select_draft_challenges.sql` | Corrige `"workout_programs: select challenges"`: a diferencia de `"select official"` (sin filtro de status), esta policy solo permitía ver retos `status='published'` — ni siquiera un admin podía ver/editar retos en borrador o archivados. Ahora: `status='published' OR is_admin()` | ✅ Aplicada |
 | `20260718000018_add_fitgifs_slug_to_exercises.sql` | Agrega `fitgifs_slug` a exercises (referencia a fitgifs API para GIFs) — reemplaza el sistema de video de ExerciseDB | ✅ Aplicada |
+| `20260810000019_exercises_catalog_bilingual_columns.sql` | Agrega columnas `_es`/`_en` a exercises/muscle_groups/equipment (aditiva) | ✅ Aplicada |
+| `20260810000020_exercise_junction_tables.sql` | Tablas `exercise_muscle_groups`/`exercise_equipment` (muchos-a-muchos), RLS | ✅ Aplicada |
+| `20260810000021_backfill_exercise_junction_from_fk.sql` | Copia la relación 1:1 vieja (`muscle_group_id`/`equipment_id`) a las tablas de junction | ✅ Aplicada |
+| `20260810000022_exercise_relations_rpc.sql` | Función RPC `upsert_exercise_with_relations` | ✅ Aplicada |
+| `20260810000023_drop_legacy_exercise_columns.sql` | `NOT NULL`/`UNIQUE` en columnas `_es`/`_en`; borra `name`/`description`/`instructions`/`tips`/`muscle_group_id`/`equipment_id` legados. Aplicada recién después de verificar 0 filas sin traducir (`scripts/verify-catalog-translations.js`) | ✅ Aplicada |
 
 ### Función RPC: duplicate_program_deep
 
@@ -329,6 +360,18 @@ Copia profunda de un programa para el usuario autenticado (`SECURITY DEFINER`):
 - Solo permite duplicar programas oficiales o propios.
 
 **Uso**: `assignProgram()` la invoca al asignar un programa oficial, de modo que el usuario recibe una copia personal cuyos objetivos (`target_sets/reps/weight`) puede editar libremente (la RLS impide editar plantillas oficiales). La asignación en `user_programs` apunta a la copia.
+
+### Función RPC: upsert_exercise_with_relations
+
+`upsert_exercise_with_relations(p_id uuid, p_exercise jsonb, p_muscle_group_ids uuid[], p_equipment_ids uuid[]) RETURNS uuid`
+
+Crea o actualiza un ejercicio y sus relaciones de forma atómica (`SECURITY DEFINER`, chequeo explícito de `is_admin()` adentro ya que `SECURITY DEFINER` bypasea RLS):
+
+- `p_id = NULL` → INSERT en `exercises`; `p_id` con valor → UPDATE.
+- Requiere al menos un `muscle_group_id` (`p_muscle_group_ids` no vacío), si no lanza excepción.
+- Borra y reinserta las filas de `exercise_muscle_groups`/`exercise_equipment` para el ejercicio, reflejando exactamente el estado enviado.
+
+**Uso**: `createExercise()`/`updateExercise()` en `src/api/exercises.ts` la invocan en vez de escribir directo con `.insert()`/`.update()` — necesario porque un ejercicio ahora escribe en 3 tablas y una falla a mitad de camino dejaría relaciones inconsistentes.
 
 ### Migración pendiente: add_user_tag
 
@@ -369,7 +412,7 @@ UPDATE public.users SET role = 'admin' WHERE email = 'abel.angel1996@gmail.com';
 
 **Escritura de contenido admin**: policies RLS separadas por comando (INSERT/UPDATE/DELETE, no `FOR ALL`) condicionadas a `is_admin()` sobre `exercises`, `muscle_groups`, `equipment`, `achievements`, `workout_programs`, `training_sessions`, `session_exercises`, `program_days`. El dashboard escribe con el mismo cliente Supabase que la app móvil (`src/lib/supabase.ts`), sin Edge Functions nuevas.
 
-**Componentes compartidos** (`src/components/admin/`): `DataTable` (tabla genérica, sin librería de grid), `ConfirmDeleteModal`, `FormField`, `ExerciseForm`, `ProgramForm`, `AchievementForm`, `ChallengeForm`, `SessionForm`, `ProgramDaySelector`, `CatalogManager`, `AdminSidebar`.
+**Componentes compartidos** (`src/components/admin/`): `DataTable` (tabla genérica, sin librería de grid), `ConfirmDeleteModal`, `FormField`, `MultiSelectField` (selección múltiple con chips + modal de checkboxes), `ExerciseForm`, `CatalogItemForm` (grupo muscular/equipo, bilingüe), `ProgramForm`, `AchievementForm`, `ChallengeForm`, `SessionForm`, `ProgramDaySelector`, `AdminSidebar`.
 
 **Verificación**: no hay Playwright en el proyecto; `.claude/skills/verify/SKILL.md` documenta cómo conducir la app en un Edge headless real vía CDP (WebSocket nativo de Node, sin dependencias nuevas) para probar logins y guards de punta a punta.
 
@@ -394,6 +437,8 @@ Cargados via `scripts/seed.js`:
 | `muscle_groups` | 10 | Pecho, Espalda, Piernas, Hombros, Bíceps, Tríceps, Core, Glúteos, Pantorrillas, Antebrazos |
 | `equipment` | 9 | Barra, Mancuernas, Máquina, Peso corporal, Kettlebell, Banda elástica, Polea, Smith Machine, Barra EZ |
 | `exercises` | 44 | Catálogo de ejercicios por grupo muscular |
+
+> ⚠️ **Desactualizado tras la migración bilingüe (`20260810000019`-`23`)**: `scripts/seed.js`, `scripts/seed-programs.js`, `scripts/add-exercises-to-sessions.js` y `scripts/seed-exercises-from-api.js` todavía insertan `exercises`/`muscle_groups`/`equipment` con la columna `name` (ya eliminada) en vez de `name_es`/`name_en` + el RPC `upsert_exercise_with_relations`. `npm run seed` fallará en una base nueva hasta que se actualicen. La base de datos real (ya poblada) no se ve afectada — esto solo importa para bootstrap de un entorno nuevo.
 | `achievements` | 10 | FIRST_WORKOUT → MARATHON |
 | `subscription_plans` | 2 | Premium Mensual ($9.99) y Anual ($79.99) |
 

@@ -106,6 +106,7 @@ scripts/              # Scripts utilitarios (seed, etc.)
 
 ## Documentación adicional
 
+- [GLOSARIO.md](./GLOSARIO.md) — Correspondencia entre términos coloquiales (Programa, Reto, Rutina, Sesión, Entrenamiento) y las tablas reales
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — Decisiones de arquitectura
 - [ROUTES.md](./ROUTES.md) — Mapa de rutas y navegación
 - [DATABASE.md](./DATABASE.md) — Esquema de base de datos
@@ -113,3 +114,4 @@ scripts/              # Scripts utilitarios (seed, etc.)
 - [USER_FLOWS.md](./USER_FLOWS.md) — Flujos de usuario
 - [TESTING.md](./TESTING.md) — Estrategia de testing
 - [TESTID_CONVENTION.md](./TESTID_CONVENTION.md) — Convención de identificadores de componentes
+- [RELEASES.md](./RELEASES.md) — Proceso de build, versionado y publicación en Play Store

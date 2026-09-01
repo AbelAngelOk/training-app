@@ -2,6 +2,8 @@ import { StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 
 import { WolfTheme } from '@/constants/colors'
+import { useAppLanguage } from '@/hooks/use-app-language'
+import { getLocalizedText } from '@/lib/i18n'
 import type { WorkoutExecutionWithDetails } from '@/api/workouts'
 
 type ExerciseExecution = WorkoutExecutionWithDetails['workout_exercise_executions'][number]
@@ -41,6 +43,7 @@ const OUTCOME_META: Record<SetOutcome, { icon: keyof typeof Ionicons.glyphMap; c
  * that were actually logged.
  */
 export function TargetVsActualRow({ execution, index }: TargetVsActualRowProps) {
+  const language = useAppLanguage()
   const se = execution.session_exercises
   const sets = [...execution.workout_sets].sort((a, b) => a.set_number - b.set_number)
 
@@ -55,7 +58,7 @@ export function TargetVsActualRow({ execution, index }: TargetVsActualRowProps) 
           <Text style={styles.indexText}>{index + 1}</Text>
         </View>
         <Text style={styles.name} numberOfLines={2}>
-          {se.exercises.name}
+          {getLocalizedText(se.exercises.name_es, se.exercises.name_en, language)}
         </Text>
         <View style={styles.targetBadge}>
           <Text style={styles.targetBadgeText}>Objetivo {targetLabel}</Text>

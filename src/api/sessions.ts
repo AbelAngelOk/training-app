@@ -6,14 +6,21 @@ import type {
   ProgramType,
   Weekday,
   ExerciseRow,
+  MuscleGroupRow,
 } from '@/types/database'
 
 export type SessionWithExercises = TrainingSessionRow & {
   session_exercises: (SessionExerciseRow & {
     exercises: ExerciseRow & {
-      muscle_groups: { name: string } | null
+      muscle_groups: MuscleGroupRow[]
     }
   })[]
+}
+
+type RawSessionExercise = SessionExerciseRow & {
+  exercises: ExerciseRow & {
+    exercise_muscle_groups: { muscle_groups: MuscleGroupRow }[]
+  }
 }
 
 export async function getSession(id: string): Promise<SessionWithExercises | null> {
@@ -25,14 +32,26 @@ export async function getSession(id: string): Promise<SessionWithExercises | nul
         *,
         exercises (
           *,
-          muscle_groups ( name )
+          exercise_muscle_groups ( muscle_groups (*) )
         )
       )
     `)
     .eq('id', id)
     .maybeSingle()
   if (error) throw error
-  return data as SessionWithExercises | null
+  if (!data) return null
+
+  const raw = data as unknown as TrainingSessionRow & { session_exercises: RawSessionExercise[] }
+  return {
+    ...raw,
+    session_exercises: raw.session_exercises.map((se) => {
+      const { exercise_muscle_groups, ...exercise } = se.exercises
+      return {
+        ...se,
+        exercises: { ...exercise, muscle_groups: exercise_muscle_groups.map((r) => r.muscle_groups) },
+      }
+    }),
+  }
 }
 
 export async function createSession(payload: {

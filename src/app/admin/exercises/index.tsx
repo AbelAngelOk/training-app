@@ -16,13 +16,8 @@ import { ConfirmDeleteModal } from '@/components/admin/ConfirmDeleteModal'
 import { SearchInput } from '@/components/training/shared/SearchInput'
 import { AlertModal } from '@/components/ui/AlertModal'
 import { Button } from '@/components/ui/Button'
+import { DIFFICULTY_LABEL } from '@/lib/i18n'
 import type { ExerciseWithDetails } from '@/api/exercises'
-
-const DIFFICULTY_LABEL: Record<string, string> = {
-  beginner: 'Principiante',
-  intermediate: 'Intermedio',
-  advanced: 'Avanzado',
-}
 
 function isForeignKeyViolation(error: unknown): boolean {
   return (
@@ -33,10 +28,14 @@ function isForeignKeyViolation(error: unknown): boolean {
   )
 }
 
+function toggleId(ids: string[], id: string): string[] {
+  return ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]
+}
+
 export default function AdminExercisesScreen() {
   const [search, setSearch] = useState('')
-  const [muscleGroupId, setMuscleGroupId] = useState<string | null>(null)
-  const [equipmentId, setEquipmentId] = useState<string | null>(null)
+  const [muscleGroupIds, setMuscleGroupIds] = useState<string[]>([])
+  const [equipmentIds, setEquipmentIds] = useState<string[]>([])
   const [deleteTarget, setDeleteTarget] = useState<ExerciseWithDetails | null>(null)
   const [offerDeactivate, setOfferDeactivate] = useState<ExerciseWithDetails | null>(null)
   const [errorAlert, setErrorAlert] = useState<string | null>(null)
@@ -45,32 +44,32 @@ export default function AdminExercisesScreen() {
   const { data: equipmentList } = useEquipment()
   const { data: exercises, isLoading } = useExercisesAdmin({
     search,
-    muscleGroupId: muscleGroupId ?? undefined,
-    equipmentId: equipmentId ?? undefined,
+    muscleGroupIds: muscleGroupIds.length > 0 ? muscleGroupIds : undefined,
+    equipmentIds: equipmentIds.length > 0 ? equipmentIds : undefined,
   })
   const deleteExercise = useDeleteExercise()
   const deactivateExercise = useDeactivateExercise()
 
   const columns = useMemo<DataTableColumn<ExerciseWithDetails>[]>(
     () => [
-      { key: 'name', header: 'Nombre', width: 240, render: (row) => row.name },
+      { key: 'name', header: 'Nombre', width: 240, render: (row) => row.name_es },
       {
         key: 'muscle_group',
         header: 'Grupo muscular',
-        width: 160,
-        render: (row) => row.muscle_groups?.name ?? '—',
+        width: 200,
+        render: (row) => row.muscle_groups.map((mg) => mg.name_es).join(', ') || '—',
       },
       {
         key: 'equipment',
         header: 'Equipo',
-        width: 160,
-        render: (row) => row.equipment?.name ?? '—',
+        width: 200,
+        render: (row) => row.equipment.map((eq) => eq.name_es).join(', ') || '—',
       },
       {
         key: 'difficulty',
         header: 'Dificultad',
         width: 120,
-        render: (row) => DIFFICULTY_LABEL[row.difficulty] ?? row.difficulty,
+        render: (row) => DIFFICULTY_LABEL.es[row.difficulty] ?? row.difficulty,
       },
       {
         key: 'active',
@@ -124,20 +123,16 @@ export default function AdminExercisesScreen() {
       <View style={styles.filtersBlock}>
         <Text style={styles.filterLabel}>Grupo muscular</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-          <TouchableOpacity
-            style={[styles.chip, !muscleGroupId && styles.chipActive]}
-            onPress={() => setMuscleGroupId(null)}
-          >
-            <Text style={[styles.chipText, !muscleGroupId && styles.chipTextActive]}>Todos</Text>
-          </TouchableOpacity>
           {(muscleGroups ?? []).map((mg) => (
             <TouchableOpacity
               key={mg.id}
-              style={[styles.chip, muscleGroupId === mg.id && styles.chipActive]}
-              onPress={() => setMuscleGroupId(mg.id)}
+              style={[styles.chip, muscleGroupIds.includes(mg.id) && styles.chipActive]}
+              onPress={() => setMuscleGroupIds((ids) => toggleId(ids, mg.id))}
             >
-              <Text style={[styles.chipText, muscleGroupId === mg.id && styles.chipTextActive]}>
-                {mg.name}
+              <Text
+                style={[styles.chipText, muscleGroupIds.includes(mg.id) && styles.chipTextActive]}
+              >
+                {mg.name_es}
               </Text>
             </TouchableOpacity>
           ))}
@@ -145,20 +140,14 @@ export default function AdminExercisesScreen() {
 
         <Text style={styles.filterLabel}>Equipo</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-          <TouchableOpacity
-            style={[styles.chip, !equipmentId && styles.chipActive]}
-            onPress={() => setEquipmentId(null)}
-          >
-            <Text style={[styles.chipText, !equipmentId && styles.chipTextActive]}>Todos</Text>
-          </TouchableOpacity>
           {(equipmentList ?? []).map((eq) => (
             <TouchableOpacity
               key={eq.id}
-              style={[styles.chip, equipmentId === eq.id && styles.chipActive]}
-              onPress={() => setEquipmentId(eq.id)}
+              style={[styles.chip, equipmentIds.includes(eq.id) && styles.chipActive]}
+              onPress={() => setEquipmentIds((ids) => toggleId(ids, eq.id))}
             >
-              <Text style={[styles.chipText, equipmentId === eq.id && styles.chipTextActive]}>
-                {eq.name}
+              <Text style={[styles.chipText, equipmentIds.includes(eq.id) && styles.chipTextActive]}>
+                {eq.name_es}
               </Text>
             </TouchableOpacity>
           ))}
@@ -185,7 +174,7 @@ export default function AdminExercisesScreen() {
 
       <ConfirmDeleteModal
         visible={!!deleteTarget}
-        message={`¿Eliminar "${deleteTarget?.name}"? Esta acción no se puede deshacer.`}
+        message={`¿Eliminar "${deleteTarget?.name_es}"? Esta acción no se puede deshacer.`}
         loading={deleteExercise.isPending}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
@@ -195,7 +184,7 @@ export default function AdminExercisesScreen() {
         visible={!!offerDeactivate}
         type="error"
         title="No se puede eliminar"
-        message={`"${offerDeactivate?.name}" está en uso en una o más sesiones. ¿Querés desactivarlo en su lugar? Dejará de aparecer en el catálogo, pero las sesiones existentes lo conservan.`}
+        message={`"${offerDeactivate?.name_es}" está en uso en una o más sesiones. ¿Querés desactivarlo en su lugar? Dejará de aparecer en el catálogo, pero las sesiones existentes lo conservan.`}
         buttonLabel="Desactivar"
         onConfirm={handleDeactivate}
         onDismiss={() => setOfferDeactivate(null)}

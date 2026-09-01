@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { WolfTheme } from '@/constants/colors'
 import { useAssignChallenge, useChallenge } from '@/hooks/use-challenges'
 import { useProgramLimits } from '@/hooks/use-program-limits'
+import { useAppLanguage } from '@/hooks/use-app-language'
+import { getLocalizedText } from '@/lib/i18n'
 import { ProgramLimitError } from '@/api/programs'
 import { AlertModal } from '@/components/ui/AlertModal'
 import { ProgramDetailSkeleton } from '@/components/training/skeletons/ProgramDetailSkeleton'
@@ -15,6 +17,7 @@ const CHALLENGE_COLOR = WolfTheme.colors.warning
 
 export default function ChallengeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
+  const language = useAppLanguage()
   const { data: challenge, isLoading } = useChallenge(id || '')
   const { mutateAsync: assignChallenge, isPending: isAssigning } = useAssignChallenge()
   const { canActivate, maxAllowed, isPremium } = useProgramLimits('challenge')
@@ -63,7 +66,13 @@ export default function ChallengeDetailScreen() {
         title: '¡A entrenar!',
         message: 'Reto iniciado. Encontralo en tu pantalla de entrenamiento.',
       })
-      setTimeout(() => router.replace('/(tabs)/training'), 1500)
+      setTimeout(() => {
+        // Reset the explore stack back to its index first — otherwise the
+        // next time the user taps the "Explorar" tab, it resumes right here
+        // (this challenge's detail screen) instead of showing the explore list.
+        router.dismissAll()
+        router.replace('/(tabs)/training')
+      }, 1500)
     } catch (error) {
       if (error instanceof ProgramLimitError) {
         showLimitAlert()
@@ -176,7 +185,8 @@ export default function ChallengeDetailScreen() {
                     <Text style={styles.dayName}>{session.name}</Text>
                     {exercise && (
                       <Text style={styles.dayDetail}>
-                        {exercise.exercises.name} — {exercise.target_sets}×{exercise.target_reps}
+                        {getLocalizedText(exercise.exercises.name_es, exercise.exercises.name_en, language)} —{' '}
+                        {exercise.target_sets}×{exercise.target_reps}
                       </Text>
                     )}
                   </View>
@@ -194,7 +204,7 @@ export default function ChallengeDetailScreen() {
             disabled={isAssigning}
           >
             <Text style={styles.startButtonText}>
-              {isAssigning ? 'Iniciando...' : 'Comenzar reto'}
+              {isAssigning ? 'Suscribiendo...' : 'Suscribirme al reto'}
             </Text>
           </TouchableOpacity>
         </View>

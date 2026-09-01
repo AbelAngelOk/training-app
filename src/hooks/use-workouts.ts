@@ -78,6 +78,12 @@ export function useCompleteWorkout() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.WORKOUT(executionId) })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER_STATS })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER_ACHIEVEMENTS })
+      // Session/challenge-day "completed" indicators are cached by session id,
+      // which this mutation doesn't know at call time — invalidate the whole
+      // prefix so every screen showing progress for any session refetches.
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHALLENGE_PROGRESS })
+      queryClient.invalidateQueries({ queryKey: ['session-history'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar'] })
     },
   })
 }
